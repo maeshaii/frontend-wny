@@ -1,6 +1,7 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
 import './Tracker.css';
 import { fetchAlumniDetails } from '../../../services/api';
+import { useNavigate } from 'react-router-dom';
 
 const QUESTION_TYPES = [
   { value: 'text', label: 'Text Input' },
@@ -42,6 +43,54 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   // Add validation state
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  // Conditional rendering logic
+  const shouldShowCategory = (category: CategoryItem) => {
+    // Check if this is "PART III: EMPLOYMENT STATUS" category
+    if (category.title.toLowerCase().includes('employment status')) {
+      // Show if "Are you PRESENTLY employed?" is answered "Yes"
+      const employmentQuestion = categories.find(cat => 
+        cat.questions.some(q => q.text.toLowerCase().includes('presently employed'))
+      );
+      if (employmentQuestion) {
+        const employmentQuestionId = employmentQuestion.questions.find(q => 
+          q.text.toLowerCase().includes('presently employed')
+        )?.id;
+        return formResponses[employmentQuestionId!] === 'Yes';
+      }
+    }
+    
+    // Check if this is "IF UNEMPLOYED" category
+    if (category.title.toLowerCase().includes('unemployed')) {
+      // Show if "Are you PRESENTLY employed?" is answered "No"
+      const employmentQuestion = categories.find(cat => 
+        cat.questions.some(q => q.text.toLowerCase().includes('presently employed'))
+      );
+      if (employmentQuestion) {
+        const employmentQuestionId = employmentQuestion.questions.find(q => 
+          q.text.toLowerCase().includes('presently employed')
+        )?.id;
+        return formResponses[employmentQuestionId!] === 'No';
+      }
+    }
+    
+    // Check if this is "PART IV: FURTHER STUDY" category
+    if (category.title.toLowerCase().includes('further study')) {
+      // Show if "Did you pursue further study?" is answered "Yes"
+      const studyQuestion = categories.find(cat => 
+        cat.questions.some(q => q.text.toLowerCase().includes('pursue further study'))
+      );
+      if (studyQuestion) {
+        const studyQuestionId = studyQuestion.questions.find(q => 
+          q.text.toLowerCase().includes('pursue further study')
+        )?.id;
+        return formResponses[studyQuestionId!] === 'Yes';
+      }
+    }
+    
+    // Show all other categories by default
+    return true;
+  };
+
   // New state for editing category
   const handleEditCategoryChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setEditCategoryDraft({ ...editCategoryDraft, [e.target.name]: e.target.value });
@@ -53,38 +102,58 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   };
 
   const handleUpdateCategory = async (catIdx: number) => {
-    const categoryId = categories[catIdx].id;
-    const res = await fetch(`http://127.0.0.1:8000/api/tracker/update-category/${categoryId}/`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: editCategoryDraft.title,
-        description: editCategoryDraft.description || ''
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      setCategories(cats => cats.map((cat, i) =>
-        i === catIdx ? { ...cat, ...data.category } : cat
-      ));
-      setEditingCategoryIndex(null);
-      setEditCategoryDraft({});
-    } else {
-      alert(data.message || 'Failed to update category');
+    try {
+      const categoryId = categories[catIdx].id;
+      const res = await fetch(`http://127.0.0.1:8000/api/tracker/update-category/${categoryId}/`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editCategoryDraft.title,
+          description: editCategoryDraft.description || ''
+        })
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      if (data.success) {
+        setCategories(cats => cats.map((cat, i) =>
+          i === catIdx ? { ...cat, ...data.category } : cat
+        ));
+        setEditingCategoryIndex(null);
+        setEditCategoryDraft({});
+      } else {
+        alert(data.message || 'Failed to update category');
+      }
+    } catch (error) {
+      console.error('Error updating category:', error);
+      alert('Failed to update category. Please try again.');
     }
   };
 
   // Add back the handleDeleteCategory function
   const handleDeleteCategory = async (catIdx: number) => {
-    const categoryId = categories[catIdx].id;
-    const res = await fetch(`http://127.0.0.1:8000/api/tracker/delete-category/${categoryId}/`, {
-      method: 'DELETE'
-    });
-    const data = await res.json();
-    if (data.success) {
-      setCategories(cats => cats.filter((_, i) => i !== catIdx));
-    } else {
-      alert(data.message || 'Failed to delete category');
+    try {
+      const categoryId = categories[catIdx].id;
+      const res = await fetch(`http://127.0.0.1:8000/api/tracker/delete-category/${categoryId}/`, {
+        method: 'DELETE'
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      if (data.success) {
+        setCategories(cats => cats.filter((_, i) => i !== catIdx));
+      } else {
+        alert(data.message || 'Failed to delete category');
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      alert('Failed to delete category. Please try again.');
     }
   };
 
@@ -97,21 +166,31 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   };
   const handleSaveNewCategory = async () => {
     if (!newCategoryDraft.title) return;
-    const res = await fetch('http://127.0.0.1:8000/api/tracker/add-category/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: newCategoryDraft.title,
-        description: newCategoryDraft.description || ''
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      setCategories(cats => [...cats, data.category]);
-      setAddingCategory(false);
-      setNewCategoryDraft({ title: '', description: '' });
-    } else {
-      alert(data.message || 'Failed to add category');
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/tracker/add-category/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newCategoryDraft.title,
+          description: newCategoryDraft.description || ''
+        })
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      if (data.success) {
+        setCategories(cats => [...cats, data.category]);
+        setAddingCategory(false);
+        setNewCategoryDraft({ title: '', description: '' });
+      } else {
+        alert(data.message || 'Failed to add category');
+      }
+    } catch (error) {
+      console.error('Error adding category:', error);
+      alert('Failed to add category. Please try again.');
     }
   };
   const cancelAddCategory = () => {
@@ -140,27 +219,37 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   };
   const handleSaveNewQuestion = async (catIdx: number) => {
     if (!newQuestionDraft.text || !newQuestionDraft.type) return;
-    const res = await fetch('http://127.0.0.1:8000/api/tracker/add-question/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        category_id: categories[catIdx].id,
-        text: newQuestionDraft.text,
-        type: newQuestionDraft.type,
-        options: newQuestionDraft.type !== 'text' ? newQuestionDraft.options?.filter(opt => opt) : []
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      setCategories(cats => cats.map((cat, i) =>
-        i === catIdx
-          ? { ...cat, questions: [...cat.questions, data.question] }
-          : cat
-      ));
-      setAddingQuestionCatIdx(null);
-      setNewQuestionDraft({ text: '', type: 'text', options: [''] });
-    } else {
-      alert(data.message || 'Failed to add question');
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/tracker/add-question/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category_id: categories[catIdx].id,
+          text: newQuestionDraft.text,
+          type: newQuestionDraft.type,
+          options: newQuestionDraft.type !== 'text' ? newQuestionDraft.options?.filter(opt => opt) : []
+        })
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      if (data.success) {
+        setCategories(cats => cats.map((cat, i) =>
+          i === catIdx
+            ? { ...cat, questions: [...cat.questions, data.question] }
+            : cat
+        ));
+        setAddingQuestionCatIdx(null);
+        setNewQuestionDraft({ text: '', type: 'text', options: [''] });
+      } else {
+        alert(data.message || 'Failed to add question');
+      }
+    } catch (error) {
+      console.error('Error adding question:', error);
+      alert('Failed to add question. Please try again.');
     }
   };
   const cancelAddQuestion = () => {
@@ -192,27 +281,37 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
     setEditQuestionDraft({ ...editQuestionDraft, options: updated });
   };
   const handleUpdateQuestion = async (catIdx: number, qIdx: number) => {
-    const questionId = categories[catIdx].questions[qIdx].id;
-    const res = await fetch(`http://127.0.0.1:8000/api/tracker/update-question/${questionId}/`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: editQuestionDraft.text,
-        type: editQuestionDraft.type,
-        options: editQuestionDraft.type !== 'text' ? editQuestionDraft.options?.filter(opt => opt) : []
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      setCategories(cats => cats.map((cat, i) =>
-        i === catIdx
-          ? { ...cat, questions: cat.questions.map((q, idx) => idx === qIdx ? data.question : q) }
-          : cat
-      ));
-      setEditingQuestion(null);
-      setEditQuestionDraft({});
-    } else {
-      alert(data.message || 'Failed to update question');
+    try {
+      const questionId = categories[catIdx].questions[qIdx].id;
+      const res = await fetch(`http://127.0.0.1:8000/api/tracker/update-question/${questionId}/`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: editQuestionDraft.text,
+          type: editQuestionDraft.type,
+          options: editQuestionDraft.type !== 'text' ? editQuestionDraft.options?.filter(opt => opt) : []
+        })
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      if (data.success) {
+        setCategories(cats => cats.map((cat, i) =>
+          i === catIdx
+            ? { ...cat, questions: cat.questions.map((q, idx) => idx === qIdx ? data.question : q) }
+            : cat
+        ));
+        setEditingQuestion(null);
+        setEditQuestionDraft({});
+      } else {
+        alert(data.message || 'Failed to update question');
+      }
+    } catch (error) {
+      console.error('Error updating question:', error);
+      alert('Failed to update question. Please try again.');
     }
   };
   const cancelEditQuestion = () => {
@@ -230,19 +329,29 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
 
   // Add back the handleDeleteQuestion function
   const handleDeleteQuestion = async (catIdx: number, qIdx: number) => {
-    const questionId = categories[catIdx].questions[qIdx].id;
-    const res = await fetch(`http://127.0.0.1:8000/api/tracker/delete-question/${questionId}/`, {
-      method: 'DELETE'
-    });
-    const data = await res.json();
-    if (data.success) {
-      setCategories(cats => cats.map((cat, i) =>
-        i === catIdx
-          ? { ...cat, questions: cat.questions.filter((_, idx) => idx !== qIdx) }
-          : cat
-      ));
-    } else {
-      alert(data.message || 'Failed to delete question');
+    try {
+      const questionId = categories[catIdx].questions[qIdx].id;
+      const res = await fetch(`http://127.0.0.1:8000/api/tracker/delete-question/${questionId}/`, {
+        method: 'DELETE'
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      if (data.success) {
+        setCategories(cats => cats.map((cat, i) =>
+          i === catIdx
+            ? { ...cat, questions: cat.questions.filter((_, idx) => idx !== qIdx) }
+            : cat
+        ));
+      } else {
+        alert(data.message || 'Failed to delete question');
+      }
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      alert('Failed to delete question. Please try again.');
     }
   };
 
@@ -283,10 +392,22 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
 
   // Fetch questions from backend
   const fetchQuestions = async () => {
-    const res = await fetch('http://127.0.0.1:8000/api/tracker/questions/');
-    const data = await res.json();
-    if (data.categories) {
-      setCategories(data.categories);
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/tracker/questions/');
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const data = await res.json();
+      if (data && data.categories) {
+        setCategories(data.categories);
+      } else {
+        console.warn('No categories data received or invalid format');
+        setCategories([]);
+      }
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      alert('Failed to load questions. Please refresh the page and try again.');
+      setCategories([]);
     }
   };
 
@@ -308,24 +429,53 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
     }
   }, [userId]);
 
+  const navigate = useNavigate();
+
   // Add this function inside the Question component
   const handleSubmit = async () => {
-    const payload: Record<string, any> = { answers: formResponses };
-    if (userId) payload['user_id'] = userId;
     try {
+      // Create FormData for file uploads
+      const formData = new FormData();
+      
+      // Add user_id and answers
+      if (userId) formData.append('user_id', userId);
+      
+      // Process answers and handle file uploads
+      const processedAnswers: Record<string, any> = {};
+      
+      for (const [questionId, answer] of Object.entries(formResponses)) {
+        if (answer instanceof File) {
+          // This is a file upload
+          processedAnswers[questionId] = { type: 'file' };
+          formData.append(`file_${questionId}`, answer);
+        } else {
+          // This is a regular answer
+          processedAnswers[questionId] = answer;
+        }
+      }
+      
+      formData.append('answers', JSON.stringify(processedAnswers));
+      
       const res = await fetch('http://127.0.0.1:8000/api/tracker/responses/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: formData, // Don't set Content-Type header, let browser set it with boundary
       });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
       const data = await res.json();
       if (data.success) {
-        alert('Form submitted successfully!');
+        const fileMessage = data.files_uploaded > 0 ? ` and ${data.files_uploaded} file(s) uploaded` : '';
+        alert(`Form submitted successfully!${fileMessage}`);
+        navigate('/alumni/dashboard');
       } else {
         alert('Submission failed: ' + (data.message || 'Unknown error'));
       }
-    } catch (err) {
-      alert('Submission failed: ' + err);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      alert('Submission failed. Please check your connection and try again.');
     }
   };
 
@@ -357,17 +507,26 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
     return '';
   }
 
-  function formatBirthdateForInput(dateStr: string): string {
+  // Helper to ensure date is always in YYYY-MM-DD format
+  function toYYYYMMDD(dateStr: string) {
     if (!dateStr) return '';
-    if (dateStr.includes('-')) {
-      const [year, month, day] = dateStr.split('-');
-      if (year && month && day) return `${day}/${month}/${year}`;
+    dateStr = dateStr.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+      const [month, day, year] = dateStr.split('/');
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
     }
-    return dateStr;
+    // Try to parse with Date if possible
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split('T')[0];
+    }
+    return '';
   }
 
   function getPrefilledValue(q: QuestionItem): any {
     const text = q.text.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
     // Always use User model for course, batch, birthdate, phone
     if (userDetails) {
       if (text.includes('course')) return userDetails['course'] || '';
@@ -379,13 +538,19 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
         text.includes('dob') ||
         text.includes('birthday') ||
         text.includes('birthdate')
-      ) return formatBirthdateForInput(userDetails['birthdate'] || '');
+      ) return toYYYYMMDD(userDetails['birthdate'] || '');
       if (
         text.includes('phone') ||
         text.includes('contact') ||
         text.includes('mobile')
       ) return userDetails['phone'] || '';
     }
+    
+    // For company address question, don't autofill but allow user input
+    if (text.includes('companyaddress') && text.includes('employer') && text.includes('graduation')) {
+      return formResponses[q.id] !== undefined ? formResponses[q.id] : '';
+    }
+    
     // Otherwise, use tracker answer if present, else user model fallback
     return formResponses[q.id] !== undefined ? formResponses[q.id] : (userDetails ? userDetails[userFieldForQuestion(q.text)] || '' : '');
   }
@@ -405,10 +570,14 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
         {previewMode ? (
           <form onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
             {categories.length === 0 && <p style={{ color: '#888' }}>No categories/questions to display.</p>}
-            {categories.map((cat, catIdx) => (
+            {categories.filter(cat => shouldShowCategory(cat)).map((cat, catIdx) => (
               <div key={cat.id} style={{ marginBottom: 32 }}>
                 <h2>{cat.title}</h2>
                 <p>{cat.description}</p>
+                {/* Show conditional indicator for employment and study sections */}
+                {(cat.title.toLowerCase().includes('employment status') || 
+                  cat.title.toLowerCase().includes('unemployed') || 
+                  cat.title.toLowerCase().includes('further study'))}
                 {cat.questions.map((q, qIdx) => (
                   <div key={q.id} style={{ marginBottom: 16 }}>
                     <label style={{ fontWeight: 500 }}>{getQuestionNumber(catIdx, qIdx)}. {q.text}</label>
@@ -438,13 +607,47 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
                         );
                       })()}
                       {q.type === 'file' && (
-                        <input
-                          type="file"
-                          onChange={e => {
-                            handleResponseChange(cat.id, q.id, e.target.files && e.target.files[0]);
-                          }}
-                          style={{ width: '100%', marginTop: 4 }}
-                        />
+                        <div className="file-upload-container">
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                            onChange={e => {
+                              const file = e.target.files && e.target.files[0];
+                              if (file) {
+                                // Validate file size (10MB)
+                                if (file.size > 10 * 1024 * 1024) {
+                                  alert('File size must be less than 10MB');
+                                  e.target.value = '';
+                                  return;
+                                }
+                                
+                                // Validate file type
+                                const allowedTypes = [
+                                  'application/pdf',
+                                  'application/msword',
+                                  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                  'image/jpeg',
+                                  'image/jpg',
+                                  'image/png',
+                                  'image/gif'
+                                ];
+                                
+                                if (!allowedTypes.includes(file.type)) {
+                                  alert('Please select a valid file type: PDF, DOC, DOCX, JPG, PNG, or GIF');
+                                  e.target.value = '';
+                                  return;
+                                }
+                              }
+                              handleResponseChange(cat.id, q.id, file);
+                            }}
+                          />
+                          {formResponses[q.id] && (
+                            <div className="file-info">
+                              <strong>Selected file:</strong> {formResponses[q.id].name} 
+                              ({(formResponses[q.id].size / 1024 / 1024).toFixed(2)} MB)
+                            </div>
+                          )}
+                        </div>
                       )}
                       {q.type === 'radio' && q.options && q.options.map(opt => (
                         <label key={opt} style={{ marginRight: 12 }}>

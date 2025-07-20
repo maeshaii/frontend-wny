@@ -6,26 +6,6 @@ const api = axios.create({
 });
 
 
-function formatBirthdateToWords(dateStr: string): string {
-  if (!dateStr) return dateStr;
-  let month, day, year;
-  if (dateStr.includes('/')) {
-    // MM/DD/YYYY
-    [month, day, year] = dateStr.split('/');
-  } else if (dateStr.includes('-')) {
-    // YYYY-MM-DD
-    [year, month, day] = dateStr.split('-');
-  } else {
-    return dateStr; // fallback
-  }
-  const months = [
-    'january', 'february', 'march', 'april', 'may', 'june',
-    'july', 'august', 'september', 'october', 'november', 'december'
-  ];
-  if (!month || !day || !year) return dateStr;
-  return `${months[parseInt(month, 10) - 1]} ${parseInt(day, 10)}, ${year}`;
-}
-
 // Login API function (JWT, for all account types)
 export const loginUser = async (acc_username: string, acc_password: string) => {
   console.log('Sending:', { acc_username, acc_password });
@@ -117,7 +97,13 @@ export const exportDetailedAlumniData = async (year = 'ALL', course = 'ALL', sta
 
 // Fetch tracker responses
 export const fetchTrackerResponses = async () => {
-  const response = await api.get('tracker/responses/');
+  const response = await api.get('tracker/list-responses/');
+  return response.data;
+};
+
+// Fetch tracker responses by batch year
+export const fetchTrackerResponsesByBatchYear = async (batchYear: string) => {
+  const response = await api.get(`tracker/list-responses/?batch_year=${batchYear}`);
   return response.data;
 };
 
