@@ -6,26 +6,6 @@ const api = axios.create({
 });
 
 
-function formatBirthdateToWords(dateStr: string): string {
-  if (!dateStr) return dateStr;
-  let month, day, year;
-  if (dateStr.includes('/')) {
-    // MM/DD/YYYY
-    [month, day, year] = dateStr.split('/');
-  } else if (dateStr.includes('-')) {
-    // YYYY-MM-DD
-    [year, month, day] = dateStr.split('-');
-  } else {
-    return dateStr; // fallback
-  }
-  const months = [
-    'january', 'february', 'march', 'april', 'may', 'june',
-    'july', 'august', 'september', 'october', 'november', 'december'
-  ];
-  if (!month || !day || !year) return dateStr;
-  return `${months[parseInt(month, 10) - 1]} ${parseInt(day, 10)}, ${year}`;
-}
-
 // Login API function (JWT, for all account types)
 export const loginUser = async (acc_username: string, acc_password: string) => {
   console.log('Sending:', { acc_username, acc_password });
@@ -108,16 +88,64 @@ export const exportDetailedAlumniData = async (year = 'ALL', course = 'ALL', sta
   try {
     const response = await axios.get(`http://127.0.0.1:8000/api/statistics/export-detailed/?year=${year}&course=${course}&type=${statsType}`);
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching detailed alumni data:', error);
     throw error;
   }
 };
 
+// OJT-specific API functions for coordinators
+export const importOJT = async (file: File, batchYear: string, course: string, coordinatorUsername: string) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('batch_year', batchYear);
+    formData.append('course', course);
+    formData.append('coordinator_username', coordinatorUsername);
+
+    const response = await api.post('ojt/import/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return { success: false, message: 'Network error occurred' };
+  }
+};
+
+// Fetch OJT statistics (counts per year) for coordinators
+export const fetchOJTStatistics = async (coordinatorUsername?: string) => {
+  const url = coordinatorUsername 
+    ? `http://127.0.0.1:8000/api/ojt/statistics/?coordinator=${coordinatorUsername}`
+    : 'http://127.0.0.1:8000/api/ojt/statistics/';
+  const response = await axios.get(url);
+  return response.data;
+};
+
+// Fetch OJT data by year for coordinators
+export const fetchOJTByYear = async (year: string, coordinatorUsername?: string) => {
+  const url = coordinatorUsername 
+    ? `http://127.0.0.1:8000/api/ojt/by-year/?year=${year}&coordinator=${coordinatorUsername}`
+    : `http://127.0.0.1:8000/api/ojt/by-year/?year=${year}`;
+  const response = await axios.get(url);
+  return response.data;
+};
+
 
 // Fetch tracker responses
 export const fetchTrackerResponses = async () => {
-  const response = await api.get('tracker/responses/');
+  const response = await api.get('tracker/list-responses/');
+  return response.data;
+};
+
+// Fetch tracker responses by batch year
+export const fetchTrackerResponsesByBatchYear = async (batchYear: string) => {
+  const response = await api.get(`tracker/list-responses/?batch_year=${batchYear}`);
   return response.data;
 };
 
