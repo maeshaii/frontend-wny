@@ -1,6 +1,6 @@
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import './Tracker.css';
-import { fetchAlumniByYear, sendReminders } from '../../../services/api';
+import { fetchAlumniByYear, sendReminders, fetchAlumniList } from '../../../services/api';
 
 interface AlumniUser {
   id: number;
@@ -38,18 +38,17 @@ const Settings: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       try {
+        // Fetch all alumni, not just by batch year
         const [alumniData, responseData] = await Promise.all([
-          fetchAlumniByYear(targetBatchYear.toString()),
+          fetchAlumniList(), // <-- fetch all alumni
           fetchTrackerResponses(),
         ]);
-        
         if (alumniData && alumniData.alumni) {
           setAlumni(alumniData.alumni);
         } else {
           console.warn('No alumni data received or invalid format');
           setAlumni([]);
         }
-        
         if (responseData && responseData.responses) {
           setResponses(responseData.responses);
         } else {
@@ -66,7 +65,7 @@ const Settings: React.FC = () => {
       }
     };
     loadData();
-  }, [targetBatchYear]);
+  }, []); // Remove targetBatchYear from dependencies
 
   // Determine responded and not responded alumni by user_id
   const respondedIds = new Set(responses.map(r => r.user_id));
@@ -327,12 +326,12 @@ const Settings: React.FC = () => {
                             style={{ width: 32, height: 32, borderRadius: '50%' }}
                           />
                           <div>
-                            <strong>{user.name}</strong><br />
-                            <span>{user.email}</span>
+                            <strong>{user.name && typeof user.name === 'object' ? JSON.stringify(user.name) : user.name || ''}</strong><br />
+                            <span>{user.email && typeof user.email === 'object' ? JSON.stringify(user.email) : user.email || ''}</span>
                           </div>
                         </div>
                       </td>
-                      <td>{user.course}</td>
+                      <td>{user.course && typeof user.course === 'object' ? JSON.stringify(user.course) : user.course || ''}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -463,12 +462,12 @@ const Settings: React.FC = () => {
                             style={{ width: 32, height: 32, borderRadius: '50%' }}
                           />
                           <div>
-                            <strong>{user.name}</strong><br />
-                            <span>{user.email}</span>
+                            <strong>{user.name && typeof user.name === 'object' ? JSON.stringify(user.name) : user.name || ''}</strong><br />
+                            <span>{user.email && typeof user.email === 'object' ? JSON.stringify(user.email) : user.email || ''}</span>
                           </div>
                         </div>
                       </td>
-                      <td>{user.course}</td>
+                      <td>{user.course && typeof user.course === 'object' ? JSON.stringify(user.course) : user.course || ''}</td>
                       <td>
                         <input
                           type="checkbox"

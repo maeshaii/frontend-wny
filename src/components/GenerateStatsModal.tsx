@@ -318,7 +318,7 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             dataKey: 'value',
           },
             chartData.pieData.map((entry: any, index: number) =>
-              createElement(Cell, { key: `cell-${index}`, fill: entry.fill })
+              createElement(Cell, { key: `pie-cell-${index}`, fill: entry.fill })
             )
           ),
           createElement(Tooltip, null),
@@ -835,37 +835,39 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             {/* Render summary rows based on type */}
             {type === 'QPRO' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
-                <tr><td style={td}>Employed</td><td style={td}>{stats.employed_count}</td><td style={td}>{((stats.employed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Unemployed</td><td style={td}>{stats.unemployed_count}</td><td style={td}>{((stats.unemployed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Employment Rate</td><td style={td}>{stats.employment_rate}%</td><td style={td}></td></tr>
+                <tr key="qpro-total-alumni"><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
+                <tr key="qpro-employed"><td style={td}>Employed</td><td style={td}>{stats.employed_count}</td><td style={td}>{((stats.employed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="qpro-unemployed"><td style={td}>Unemployed</td><td style={td}>{stats.unemployed_count}</td><td style={td}>{((stats.unemployed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="qpro-employment-rate"><td style={td}>Employment Rate</td><td style={td}></td><td style={td}>{((stats.employed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
               </>
             )}
             {type === 'CHED' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
-                <tr><td style={td}>Pursuing Further Study</td><td style={td}>{stats.pursuing_further_study}</td><td style={td}>{((stats.pursuing_further_study / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Post Graduate Degree</td><td style={td}>{stats.post_graduate_degree}</td><td style={td}>{((stats.post_graduate_degree / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Further Study Rate</td><td style={td}>{stats.further_study_rate}%</td><td style={td}></td></tr>
+                <tr key="ched-total-alumni"><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
+                <tr key="ched-pursuing-further-study"><td style={td}>Pursuing Further Study</td><td style={td}>{stats.pursuing_further_study}</td><td style={td}>{((stats.pursuing_further_study / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="ched-post-graduate-degree"><td style={td}>Post Graduate Degree</td><td style={td}>{stats.post_graduate_degree}</td><td style={td}>{((stats.post_graduate_degree / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="ched-job-alignment"><td style={td}>Job Alignment</td><td style={td}>{stats.job_alignment_count}</td><td style={td}>{((stats.job_alignment_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="ched-self-employed"><td style={td}>Self-Employed</td><td style={td}>{stats.self_employed_count}</td><td style={td}>{((stats.self_employed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="ched-further-study-rate"><td style={td}>Further Study Rate</td><td style={td}>{stats.further_study_rate}%</td><td style={td}></td></tr>
               </>
             )}
             {type === 'SUC' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
-                <tr><td style={td}>High Position</td><td style={td}>{stats.high_position_count}</td><td style={td}>{((stats.high_position_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Other Positions</td><td style={td}>{stats.total_alumni - stats.high_position_count}</td><td style={td}>{(((stats.total_alumni - stats.high_position_count) / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Average Salary</td><td style={td}>{stats.average_salary}</td><td style={td}></td></tr>
+                <tr key="suc-total-alumni"><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
+                <tr key="suc-high-position"><td style={td}>High Position</td><td style={td}>{stats.high_position_count}</td><td style={td}>{((stats.high_position_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="suc-other-positions"><td style={td}>Other Positions</td><td style={td}>{stats.total_alumni - stats.high_position_count}</td><td style={td}>{(((stats.total_alumni - stats.high_position_count) / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="suc-average-salary"><td style={td}>Average Salary</td><td style={td}>{stats.average_salary}</td><td style={td}></td></tr>
               </>
             )}
             {type === 'AACUP' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
-                <tr><td style={td}>Employed</td><td style={td}>{stats.employed_count}</td><td style={td}>{((stats.employed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Absorbed</td><td style={td}>{stats.absorbed_count}</td><td style={td}>{((stats.absorbed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>High Position</td><td style={td}>{stats.high_position_count}</td><td style={td}>{((stats.high_position_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Employment Rate</td><td style={td}>{stats.employment_rate}%</td><td style={td}></td></tr>
-                <tr><td style={td}>Absorption Rate</td><td style={td}>{stats.absorption_rate}%</td><td style={td}></td></tr>
-                <tr><td style={td}>High Position Rate</td><td style={td}>{stats.high_position_rate}%</td><td style={td}></td></tr>
+                <tr key="aacup-total-alumni"><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
+                <tr key="aacup-employed"><td style={td}>Employed</td><td style={td}>{stats.employed_count}</td><td style={td}>{((stats.employed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="aacup-absorbed"><td style={td}>Absorbed</td><td style={td}>{stats.absorbed_count}</td><td style={td}>{((stats.absorbed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="aacup-high-position"><td style={td}>High Position</td><td style={td}>{stats.high_position_count}</td><td style={td}>{((stats.high_position_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="aacup-employment-rate"><td style={td}>Employment Rate</td><td style={td}>{stats.employment_rate}%</td><td style={td}></td></tr>
+                <tr key="aacup-absorption-rate"><td style={td}>Absorption Rate</td><td style={td}>{stats.absorption_rate}%</td><td style={td}></td></tr>
+                <tr key="aacup-high-position-rate"><td style={td}>High Position Rate</td><td style={td}>{stats.high_position_rate}%</td><td style={td}></td></tr>
               </>
             )}
           </tbody>
@@ -967,8 +969,8 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {chartData.pieData.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    {chartData.pieData && chartData.pieData.map((entry: any, index: number) => (
+                      <Cell key={`pie-cell-${index}`} fill={entry.fill} />
                     ))}
                   </Pie>
                   <Tooltip />

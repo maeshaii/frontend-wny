@@ -182,16 +182,7 @@ const AlumniTracker: React.FC = () => {
         CTU MAIN ALUMNI TRACKER
       </h2>
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        {hasSubmitted ? (
-          <div style={{ textAlign: 'center', marginTop: 40, fontSize: 20, color: '#174f84', background: 'white', padding: 32, borderRadius: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-            You have already completed the tracker form. Thank you!
-            <div style={{ marginTop: 16, fontSize: 16, color: '#666' }}>
-              Redirecting to notifications in 3 seconds...
-            </div>
-          </div>
-        ) : (
-          <Question previewModeFromParent={true} userId={userId} />
-        )}
+        <Question previewModeFromParent={true} userId={userId} />
       </div>
     </div>
   );
