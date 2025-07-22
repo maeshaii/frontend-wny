@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AlumniTopBar from './AlumniTopBar';
+import ctulogo from '../../images/ctulogo.png';
+
 
 interface AlumniUser {
   name: string;
@@ -18,6 +20,13 @@ const AlumniProfile: React.FC = () => {
   const [showProfile, setShowProfile] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editProfilePic, setEditProfilePic] = useState<string | undefined>(user?.profile_pic);
+  const [editBio, setEditBio] = useState<string>(user?.bio || '');
+  // Remove all state and handlers related to resume (editResume, resumeFile, handleResumeChange, handleRemoveResume)
+  // Remove the Resume section from the modal UI
+  // Leave a comment where the resume section would go for future implementation
+  const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
@@ -35,6 +44,80 @@ const AlumniProfile: React.FC = () => {
       navigate('/login');
     }
   }, [navigate, id]);
+
+  const handleEditProfile = () => {
+    setEditProfilePic(user?.profile_pic);
+    setEditBio(user?.bio || '');
+    // setEditResume(user?.resume); // This line is removed
+    setEditModalOpen(true);
+  };
+
+  const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    console.log('Selected file:', file);
+    if (file) {
+      setProfilePicFile(file);
+      const reader = new FileReader();
+      reader.onload = (ev) => setEditProfilePic(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => { // This function is removed
+  //   const file = e.target.files?.[0];
+  //   if (file && file.type === 'application/pdf') {
+  //     setResumeFile(file);
+  //     const reader = new FileReader();
+  //     reader.onload = (ev) => setEditResume(ev.target?.result as string);
+  //     reader.readAsDataURL(file);
+  //   }
+  // };
+
+  const handleRemoveProfilePic = () => {
+    setEditProfilePic(undefined);
+    setProfilePicFile(null);
+  };
+
+  // const handleRemoveResume = () => { // This function is removed
+  //   setEditResume(undefined);
+  //   setResumeFile(null);
+  // };
+
+  const handleSave = async () => {
+    const formData = new FormData();
+    if (profilePicFile) {
+      formData.append('profile_pic', profilePicFile);
+    }
+    formData.append('bio', editBio);
+
+    const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId = userObj.user_id || userObj.id;
+    if (!userId) {
+      alert('User ID not found. Please log in again.');
+      return;
+    }
+
+    const url = `http://127.0.0.1:8000/api/shared/profile/update/?user_id=${userId}`;
+    console.log('Sending PUT to:', url);
+    try {
+      const response = await fetch(url, {
+        method: 'PUT',
+        body: formData,
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setEditModalOpen(false);
+        window.location.reload();
+      } else {
+        const err = await response.json();
+        alert('Failed to update profile: ' + (err.message || 'Unknown error'));
+      }
+    } catch (error) {
+      alert('Network error: ' + error);
+    }
+  };
 
   return (
     <div style={{ background: '#f5f7fa', minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
@@ -141,20 +224,7 @@ const AlumniProfile: React.FC = () => {
             marginBottom: 60
           }}>
             {/* Edit Profile Button */}
-            <div style={{ 
-              position: 'absolute', 
-              top: 16, 
-              right: 16, 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 4,
-              fontSize: 12,
-              color: 'white',
-              cursor: 'pointer',
-              background: 'rgba(0,0,0,0.2)',
-              padding: '6px 12px',
-              borderRadius: 6
-            }}>
+            <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'white', cursor: 'pointer', background: 'rgba(0,0,0,0.2)', padding: '6px 12px', borderRadius: 6 }} onClick={handleEditProfile}>
               <span>Edit Profile</span>
               <span>✏️</span>
             </div>
@@ -175,7 +245,7 @@ const AlumniProfile: React.FC = () => {
               textAlign: 'center'
             }}>
               <img 
-                src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/68.jpg'} 
+                src={user?.profile_pic || ctulogo} 
                 alt="Profile" 
                 style={{ 
                   width: 80, 
@@ -205,7 +275,7 @@ const AlumniProfile: React.FC = () => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <img 
-                src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/68.jpg'} 
+                src={user?.profile_pic || ctulogo} 
                 alt="Profile" 
                 style={{ width: 40, height: 40, borderRadius: '50%' }} 
               />
@@ -234,7 +304,7 @@ const AlumniProfile: React.FC = () => {
             {/* Post Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <img 
-                src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/68.jpg'} 
+                src={user?.profile_pic || ctulogo} 
                 alt="Profile" 
                 style={{ width: 40, height: 40, borderRadius: '50%' }} 
               />
@@ -273,6 +343,36 @@ const AlumniProfile: React.FC = () => {
 
         
       </div>
+
+      {/* Edit Profile Modal */}
+      {editModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 16px rgba(0,0,0,0.18)', padding: 32, minWidth: 340, maxWidth: 480, width: '90%', position: 'relative' }}>
+            <button onClick={() => setEditModalOpen(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#888' }} title="Close">×</button>
+            <h2 style={{ marginBottom: 16 }}>Edit Profile</h2>
+            {/* Profile Pic */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontWeight: 600 }}>Profile Picture</label><br />
+              <img src={editProfilePic || ctulogo} alt="Profile Preview" style={{ width: 80, height: 80, borderRadius: '50%', border: '2px solid #eee', margin: '8px 0' }} />
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <input type="file" accept="image/*" onChange={handleProfilePicChange} />
+                <button onClick={handleRemoveProfilePic} style={{ background: '#eee', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>Remove</button>
+              </div>
+            </div>
+            {/* Bio */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontWeight: 600 }}>Bio</label><br />
+              <textarea value={editBio} onChange={e => setEditBio(e.target.value)} rows={3} style={{ width: '100%', borderRadius: 6, border: '1px solid #ccc', padding: 8, marginTop: 4 }} />
+              <button onClick={() => setEditBio('')} style={{ background: '#eee', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', marginTop: 4 }}>Clear Bio</button>
+            </div>
+            {/* Resume (PDF) - Feature coming soon */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setEditModalOpen(false)} style={{ background: '#eee', border: 'none', borderRadius: 6, padding: '8px 20px', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleSave} style={{ background: '#174f84', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', cursor: 'pointer' }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
