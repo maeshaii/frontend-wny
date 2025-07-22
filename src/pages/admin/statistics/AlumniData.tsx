@@ -239,13 +239,13 @@ const AlumniData: React.FC = () => {
                       onClick={() => openModal(alumni)}
                     >
                       <td style={bodyCell}>{String(index + 1).padStart(2, '0')}</td>
-                      <td style={bodyCell}>{alumni.program || alumni.Program_Name || alumni.course || ''}</td>
-                      <td style={bodyCell}>{alumni.lastName || alumni.Last_Name || (alumni.name ? alumni.name.split(' ').slice(-1)[0] : '') || ''}</td>
-                      <td style={bodyCell}>{alumni.firstName || alumni.First_Name || (alumni.name ? alumni.name.split(' ')[0] : '') || ''}</td>
-                      <td style={bodyCell}>{alumni.status || alumni.Status || alumni.user_status || ''}</td>
-                      <td style={bodyCell}>{alumni.company_name_current || alumni['Company name current'] || alumni.company || tracker.company || ''}</td>
-                      <td style={bodyCell}>{alumni.position_current || alumni['Position current'] || tracker.position || ''}</td>
-                      <td style={bodyCell}>{alumni.salary_current || alumni['Salary current'] || tracker.salary || ''}</td>
+                      <td style={bodyCell}>{typeof (alumni.program || alumni.Program_Name || alumni.course) === 'object' ? JSON.stringify(alumni.program || alumni.Program_Name || alumni.course) : (alumni.program || alumni.Program_Name || alumni.course || '')}</td>
+                      <td style={bodyCell}>{typeof (alumni.lastName || alumni.Last_Name || (alumni.name ? alumni.name.split(' ').slice(-1)[0] : '')) === 'object' ? JSON.stringify(alumni.lastName || alumni.Last_Name || (alumni.name ? alumni.name.split(' ').slice(-1)[0] : '')) : (alumni.lastName || alumni.Last_Name || (alumni.name ? alumni.name.split(' ').slice(-1)[0] : '') || '')}</td>
+                      <td style={bodyCell}>{typeof (alumni.firstName || alumni.First_Name || (alumni.name ? alumni.name.split(' ')[0] : '')) === 'object' ? JSON.stringify(alumni.firstName || alumni.First_Name || (alumni.name ? alumni.name.split(' ')[0] : '')) : (alumni.firstName || alumni.First_Name || (alumni.name ? alumni.name.split(' ')[0] : '') || '')}</td>
+                      <td style={bodyCell}>{typeof (alumni.status || alumni.Status || alumni.user_status) === 'object' ? JSON.stringify(alumni.status || alumni.Status || alumni.user_status) : (alumni.status || alumni.Status || alumni.user_status || '')}</td>
+                      <td style={bodyCell}>{typeof (alumni.company_name_current || alumni['Company name current'] || alumni.company || tracker.company) === 'object' ? JSON.stringify(alumni.company_name_current || alumni['Company name current'] || alumni.company || tracker.company) : (alumni.company_name_current || alumni['Company name current'] || alumni.company || tracker.company || '')}</td>
+                      <td style={bodyCell}>{typeof (alumni.position_current || alumni['Position current'] || tracker.position) === 'object' ? JSON.stringify(alumni.position_current || alumni['Position current'] || tracker.position) : (alumni.position_current || alumni['Position current'] || tracker.position || '')}</td>
+                      <td style={bodyCell}>{typeof (alumni.salary_current || alumni['Salary current'] || tracker.salary) === 'object' ? JSON.stringify(alumni.salary_current || alumni['Salary current'] || tracker.salary) : (alumni.salary_current || alumni['Salary current'] || tracker.salary || '')}</td>
                     </tr>
                   );
                 })
@@ -303,7 +303,11 @@ const AlumniData: React.FC = () => {
                   }).map(([label, value]) => (
                     <tr key={label}>
                       <td style={{ fontWeight: 'bold', padding: '6px 12px', textAlign: 'right', width: '40%' }}>{label}:</td>
-                      <td style={{ padding: '6px 12px' }}>{value || <em>No answer</em>}</td>
+                      <td style={{ padding: '6px 12px' }}>{
+                        value === undefined || value === null || value === ''
+                          ? <em>No answer</em>
+                          : (typeof value === 'object' ? JSON.stringify(value) : value)
+                      }</td>
                     </tr>
                   ))}
                 </tbody>
