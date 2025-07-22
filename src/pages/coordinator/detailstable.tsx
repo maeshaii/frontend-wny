@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchAlumniByYear } from '../../services/api';
+import { fetchOJTByYear } from '../../services/api';
 
 interface DetailsTableProps {
   onBack: () => void;
@@ -7,18 +7,26 @@ interface DetailsTableProps {
 }
 
 export default function DetailsTable({ onBack, selectedYear }: DetailsTableProps) {
-  const [alumniData, setAlumniData] = useState<any[]>([]);
+  const [ojtData, setOjtData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [coordinatorUsername, setCoordinatorUsername] = useState('');
 
   useEffect(() => {
-    const loadAlumniData = async () => {
+    // Get coordinator username from localStorage
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      setCoordinatorUsername(userData.name || '');
+    }
+
+    const loadOJTData = async () => {
       if (selectedYear) {
         try {
-          const data = await fetchAlumniByYear(selectedYear.toString());
-          setAlumniData(data.alumni || []);
+          const data = await fetchOJTByYear(selectedYear.toString(), coordinatorUsername);
+          setOjtData(data.ojt_data || []);
         } catch (error) {
-          console.error('Error loading alumni data:', error);
-          setAlumniData([]);
+          console.error('Error loading OJT data:', error);
+          setOjtData([]);
         } finally {
           setLoading(false);
         }
@@ -27,8 +35,8 @@ export default function DetailsTable({ onBack, selectedYear }: DetailsTableProps
       }
     };
 
-    loadAlumniData();
-  }, [selectedYear]);
+    loadOJTData();
+  }, [selectedYear, coordinatorUsername]);
 
   // Inline styles
   const styles = {
@@ -92,7 +100,7 @@ export default function DetailsTable({ onBack, selectedYear }: DetailsTableProps
     return (
       <div style={styles.detailsTable}>
         <div style={{ textAlign: 'center', padding: '40px' }}>
-          Loading alumni data...
+          Loading OJT data...
         </div>
       </div>
     );
@@ -107,25 +115,25 @@ export default function DetailsTable({ onBack, selectedYear }: DetailsTableProps
             <th style={styles.th}>No.</th>
             <th style={styles.th}>Last Name</th>
             <th style={styles.th}>First Name</th>
-            <th style={styles.th}>Status</th>
+            <th style={styles.th}>OJT Status</th>
           </tr>
         </thead>
         <tbody>
-          {alumniData.length === 0 ? (
+          {ojtData.length === 0 ? (
             <tr>
               <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#888' }}>
-                No alumni data found for this year.
+                No OJT data found for this year.
               </td>
             </tr>
           ) : (
-            alumniData.map((alumni, idx) => (
-              <tr key={alumni.id} style={idx % 2 === 1 ? styles.trEven : undefined}>
-                <td style={styles.td}>{alumni.course || ''}</td>
+            ojtData.map((ojt, idx) => (
+              <tr key={ojt.id} style={idx % 2 === 1 ? styles.trEven : undefined}>
+                <td style={styles.td}>{ojt.course || ''}</td>
                 <td style={styles.td}>{String(idx + 1).padStart(2, '0')}.</td>
-                <td style={styles.td}>{alumni.name ? alumni.name.split(' ').slice(-1)[0] : ''}</td>
-                <td style={styles.td}>{alumni.name ? alumni.name.split(' ')[0] : ''}</td>
-                <td style={alumni.status === 'Employed' || alumni.status === 'High Position' || alumni.status === 'Absorb' ? styles.complete : styles.incomplete}>
-                  {alumni.status || ''}
+                <td style={styles.td}>{ojt.name ? ojt.name.split(' ').slice(-1)[0] : ''}</td>
+                <td style={styles.td}>{ojt.name ? ojt.name.split(' ')[0] : ''}</td>
+                <td style={ojt.ojt_status === 'Completed' ? styles.complete : styles.incomplete}>
+                  {ojt.ojt_status || 'Pending'}
                 </td>
               </tr>
             ))

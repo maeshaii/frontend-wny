@@ -11,6 +11,7 @@ import Logout from './pages/admin/Logout/index';
 import AlumniDashboard from './pages/alumni/Dashboard';
 import NotificationPage from './pages/alumni/Notification';
 import AlumniTracker from './pages/alumni/Tracker';
+import CoordinatorDashboard from './pages/coordinator/dashboard';
 // import other pages like Statistics, Users, etc.
 
 const App: React.FC = () => {
@@ -32,6 +33,7 @@ const App: React.FC = () => {
         <Route path="/alumni/dashboard" element={<AlumniDashboard />} />
         <Route path="/alumni/notifications" element={<NotificationPage />} />
         <Route path="/alumni/tracker" element={<AlumniTracker />} />
+        <Route path="/coordinator/dashboard" element={<CoordinatorDashboard />} />
 
         {/* Add more routes like:
         <Route path="/statistics" element={<Statistics />} />

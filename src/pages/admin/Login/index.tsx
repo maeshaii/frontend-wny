@@ -21,8 +21,11 @@ const Login = () => {
         } else if (data.user.account_type.user) {
           // Alumni user - go to alumni dashboard
           navigate('/alumni/dashboard');
+        } else if (data.user.account_type.coordinator) {
+          // Coordinator user - go to coordinator dashboard
+          navigate('/coordinator/dashboard');
         } else {
-          // Other account types (PESO, coordinator)
+          // Other account types (PESO, etc.)
           navigate('/dashboard');
         }
       } else {
