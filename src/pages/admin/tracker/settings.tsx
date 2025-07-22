@@ -1,12 +1,14 @@
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import './Tracker.css';
 import { fetchAlumniByYear, sendReminders } from '../../../services/api';
+import ctulogo from '../../../images/ctulogo.png';
 
 interface AlumniUser {
   id: number;
   name: string;
   email?: string;
   course?: string;
+  profile_pic?: string;
 }
 
 interface TrackerResponse {
@@ -322,7 +324,7 @@ const Settings: React.FC = () => {
                       <td>
                         <div className="user-info">
                           <img
-                            src={process.env.PUBLIC_URL + '/favicon.ico'}
+                            src={user.profile_pic || ctulogo}
                             alt="avatar"
                             style={{ width: 32, height: 32, borderRadius: '50%' }}
                           />
@@ -458,7 +460,7 @@ const Settings: React.FC = () => {
                       <td>
                         <div className="user-info">
                           <img
-                            src={process.env.PUBLIC_URL + '/favicon.ico'}
+                            src={user.profile_pic || ctulogo}
                             alt="avatar"
                             style={{ width: 32, height: 32, borderRadius: '50%' }}
                           />
