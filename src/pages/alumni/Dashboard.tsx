@@ -92,7 +92,7 @@ const AlumniDashboard: React.FC = () => {
       { id: 4, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/men/4.jpg" },
       { id: 5, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/women/5.jpg" },
       { id: 6, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/men/6.jpg" },
-      { id: 7, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/women/7.jpg" }
+      { id: 7, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/women/7.jpg" },
     ]);
   }, [navigate]);
 
@@ -139,7 +139,7 @@ const AlumniDashboard: React.FC = () => {
             {/* Profile Content */}
             <div style={{ padding: '20px 20px 20px 20px' }}>
               <img 
-                src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/44.jpg'} 
+                src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/68.jpg'} 
                 alt="Profile" 
                 style={{ 
                   width: 80, 
@@ -291,7 +291,7 @@ const AlumniDashboard: React.FC = () => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <img 
-                src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/44.jpg'} 
+                src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/68.jpg'} 
                 alt="Profile" 
                 style={{ width: 40, height: 40, borderRadius: '50%' }} 
               />
@@ -370,47 +370,38 @@ const AlumniDashboard: React.FC = () => {
           ))}
         </div>
 
-        {/* Right Sidebar */}
-        <div style={{ flex: 1, maxWidth: 280 }}>
-          {/* People You May Know */}
-          <div style={{ 
-            background: 'white', 
-            borderRadius: 12, 
-            padding: 20, 
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-            border: '1px solid #e0e0e0'
-          }}>
-            <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 16 }}>
-              People you may know
-            </div>
+       {/* Right Sidebar */}
+       <div style={{ flex: 1, maxWidth: 280 }}>
+          <div
+            style={{
+              background: 'white',
+              borderRadius: 12,
+              padding: 20,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              border: '1px solid #e0e0e0',
+            }}
+          >
+            <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 16 }}>People you may know</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {suggestedUsers.map((suggestedUser) => (
-                <div key={suggestedUser.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ 
-                    width: 40, 
-                    height: 40, 
-                    background: '#f0f0f0', 
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 16,
-                    color: '#999'
-                  }}>
-                    👤
-                  </div>
-                  <div style={{ flex: 1, fontSize: 14, color: '#666' }}>
-                    {suggestedUser.name}
-                  </div>
-                  <button style={{ 
-                    background: '#174f84', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: 6, 
-                    padding: '6px 12px',
-                    fontSize: 12,
-                    cursor: 'pointer'
-                  }}>
+              {suggestedUsers.map((user) => (
+                <div key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <img
+                    src={user.profile_pic}
+                    alt={user.name}
+                    style={{ width: 40, height: 40, borderRadius: '50%' }}
+                  />
+                  <div style={{ flex: 1, fontSize: 14, color: '#666' }}>{user.name}</div>
+                  <button
+                    style={{
+                      background: '#174f84',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 6,
+                      padding: '6px 12px',
+                      fontSize: 12,
+                      cursor: 'pointer',
+                    }}
+                  >
                     Follow
                   </button>
                 </div>
@@ -423,4 +414,4 @@ const AlumniDashboard: React.FC = () => {
   );
 };
 
-export default AlumniDashboard; 
+export default AlumniDashboard;  

@@ -12,7 +12,10 @@ import AlumniDashboard from './pages/alumni/Dashboard';
 import NotificationPage from './pages/alumni/Notification';
 import AlumniTracker from './pages/alumni/Tracker';
 import AlumniProfile from './pages/alumni/Profile';
-import AdminProfile from './pages/admin/dashboard/AdminProfile';
+import AdminDashboard from './pages/admin/dashboard/AdminDashboard';
+import AdminNotificationPage from './pages/admin/dashboard/AdminNotification';
+import AdminProfilePage from './pages/admin/dashboard/AdminProfilePage';
+
 
 const App: React.FC = () => {
   return (
@@ -34,7 +37,10 @@ const App: React.FC = () => {
         <Route path="/alumni/profile" element={<AlumniProfile />} />
         <Route path="/alumni/notifications" element={<NotificationPage />} />
         <Route path="/alumni/tracker" element={<AlumniTracker />} />
-        <Route path="/ccict/dashboard" element={<AdminProfile />} />
+        <Route path="/ccict/dashboard" element={<AdminDashboard />} />
+        <Route path="/ccict/notification" element={<AdminNotificationPage />} />
+        <Route path="/ccict/profile" element={<AdminProfilePage />} />
+
       </Routes>
     </Router>
   );
