@@ -45,7 +45,6 @@ const App: React.FC = () => {
         <Route path="/ccict/dashboard" element={<AdminDashboard />} />
         <Route path="/ccict/notification" element={<AdminNotificationPage />} />
         <Route path="/ccict/profile" element={<AdminProfilePage />} />
-        <Route path="/ccict/dashboard" element={<AdminProfile />} />
 
         <Route path="/coordinator/dashboard" element={<CoordinatorDashboard />} />
 

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import './Tracker.css';
-import { fetchAlumniByYear, sendReminders } from '../../../services/api';
 import ctulogo from '../../../images/ctulogo.png';
 import { fetchAlumniByYear, sendReminders, fetchAlumniList } from '../../../services/api';
 
