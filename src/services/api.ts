@@ -88,10 +88,52 @@ export const exportDetailedAlumniData = async (year = 'ALL', course = 'ALL', sta
   try {
     const response = await axios.get(`http://127.0.0.1:8000/api/statistics/export-detailed/?year=${year}&course=${course}&type=${statsType}`);
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching detailed alumni data:', error);
     throw error;
   }
+};
+
+// OJT-specific API functions for coordinators
+export const importOJT = async (file: File, batchYear: string, course: string, coordinatorUsername: string) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('batch_year', batchYear);
+    formData.append('course', course);
+    formData.append('coordinator_username', coordinatorUsername);
+
+    const response = await api.post('ojt/import/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return { success: false, message: 'Network error occurred' };
+  }
+};
+
+// Fetch OJT statistics (counts per year) for coordinators
+export const fetchOJTStatistics = async (coordinatorUsername?: string) => {
+  const url = coordinatorUsername 
+    ? `http://127.0.0.1:8000/api/ojt/statistics/?coordinator=${coordinatorUsername}`
+    : 'http://127.0.0.1:8000/api/ojt/statistics/';
+  const response = await axios.get(url);
+  return response.data;
+};
+
+// Fetch OJT data by year for coordinators
+export const fetchOJTByYear = async (year: string, coordinatorUsername?: string) => {
+  const url = coordinatorUsername 
+    ? `http://127.0.0.1:8000/api/ojt/by-year/?year=${year}&coordinator=${coordinatorUsername}`
+    : `http://127.0.0.1:8000/api/ojt/by-year/?year=${year}`;
+  const response = await axios.get(url);
+  return response.data;
 };
 
 

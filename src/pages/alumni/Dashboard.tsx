@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchNotifications } from '../../services/api';
 import AlumniTopBar from './AlumniTopBar';
+import ctulogo from '../../images/ctulogo.png';
 
 interface AlumniUser {
   name: string;
@@ -140,6 +141,7 @@ const AlumniDashboard: React.FC = () => {
             <div style={{ padding: '20px 20px 20px 20px' }}>
               <img 
                 src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/68.jpg'} 
+                src={user?.profile_pic || ctulogo} 
                 alt="Profile" 
                 style={{ 
                   width: 80, 
@@ -151,10 +153,10 @@ const AlumniDashboard: React.FC = () => {
                 }} 
               />
               <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 4, color: '#333' }}>
-                {user?.name || 'Angel Khyla Marie I. Aboloc'}
+                {user?.name }
               </div>
               <div style={{ fontSize: 14, color: '#666' }}>
-                {user?.university || 'Cebu Technological University'}
+                {user?.university}
               </div>
             </div>
           </div>
@@ -292,6 +294,7 @@ const AlumniDashboard: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <img 
                 src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/68.jpg'} 
+                src={user?.profile_pic || ctulogo} 
                 alt="Profile" 
                 style={{ width: 40, height: 40, borderRadius: '50%' }} 
               />
@@ -322,7 +325,7 @@ const AlumniDashboard: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <img 
-                    src={post.author.profile_pic} 
+                    src={post.author.profile_pic || ctulogo} 
                     alt="Profile" 
                     style={{ width: 40, height: 40, borderRadius: '50%' }} 
                   />
