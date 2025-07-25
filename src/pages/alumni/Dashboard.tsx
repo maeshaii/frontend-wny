@@ -141,7 +141,7 @@ const AlumniDashboard: React.FC = () => {
             <div style={{ padding: '20px 20px 20px 20px' }}>
               <img 
                 src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/68.jpg'} 
-                src={user?.profile_pic || ctulogo} 
+                
                 alt="Profile" 
                 style={{ 
                   width: 80, 
@@ -294,7 +294,6 @@ const AlumniDashboard: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <img 
                 src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/68.jpg'} 
-                src={user?.profile_pic || ctulogo} 
                 alt="Profile" 
                 style={{ width: 40, height: 40, borderRadius: '50%' }} 
               />
