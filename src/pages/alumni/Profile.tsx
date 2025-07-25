@@ -182,13 +182,17 @@ const AlumniProfile: React.FC = () => {
               <div style={{ display: 'flex', gap: 8 }}>
                 {[1, 2, 3].map((f) => (
                   <div key={f} style={{ textAlign: 'center', flex: 1 }}>
-                    <div style={{ 
-                      width: 40, 
-                      height: 40, 
-                      background: '#f0f0f0', 
-                      borderRadius: '50%', 
-                      marginBottom: 4 
-                    }}></div>
+                    <img
+                      src={`https://randomuser.me/api/portraits/men/${f * 5}.jpg`}
+                      alt="Follower"
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        marginBottom: 4
+                      }}
+                    />
                     <div style={{ fontSize: 12, color: '#666' }}>lorem</div>
                   </div>
                 ))}
@@ -197,19 +201,24 @@ const AlumniProfile: React.FC = () => {
               <div style={{ display: 'flex', gap: 8 }}>
                 {[4, 5, 6].map((f) => (
                   <div key={f} style={{ textAlign: 'center', flex: 1 }}>
-                    <div style={{ 
-                      width: 40, 
-                      height: 40, 
-                      background: '#f0f0f0', 
-                      borderRadius: '50%', 
-                      marginBottom: 4 
-                    }}></div>
+                    <img
+                      src={`https://randomuser.me/api/portraits/women/${f * 4}.jpg`}
+                      alt="Follower"
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        marginBottom: 4
+                      }}
+                    />
                     <div style={{ fontSize: 12, color: '#666' }}>lorem</div>
                   </div>
                 ))}
               </div>
             </div>
           </div>
+
         </div>
 
         {/* Center Content */}
@@ -230,7 +239,7 @@ const AlumniProfile: React.FC = () => {
             </div>
           </div>
 
-                    {/* Profile Info Section */}
+          {/* Profile Info Section */}
           <div style={{ 
             position: 'relative',
             marginTop: -80,
@@ -252,7 +261,8 @@ const AlumniProfile: React.FC = () => {
                   height: 80, 
                   borderRadius: '50%', 
                   border: '3px solid white',
-                  marginBottom: 12
+                  marginBottom: 12,
+                  marginTop: -60
                 }} 
               />
               <div style={{ fontWeight: 'bold', fontSize: 18, color: '#333', marginBottom: 4, textTransform: 'uppercase' }}>

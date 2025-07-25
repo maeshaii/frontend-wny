@@ -68,7 +68,7 @@ const AlumniTopBar: React.FC<AlumniTopBarProps> = ({ showProfile, setShowProfile
 
       {/* Navigation Icons */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={() => navigate('/alumni/dashboard')}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={() => isAdmin ? navigate('/ccict/dashboard') : navigate('/alumni/dashboard')}>
           <span style={{ color: 'white', fontSize: 20 }}>🏠</span>
           <span style={{ color: 'white', fontSize: 12 }}>Home</span>
         </div>
@@ -76,7 +76,7 @@ const AlumniTopBar: React.FC<AlumniTopBarProps> = ({ showProfile, setShowProfile
           <span style={{ color: 'white', fontSize: 20 }}>✉️</span>
           <span style={{ color: 'white', fontSize: 12 }}>Messages</span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={() => navigate('/alumni/notifications')}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={() => isAdmin ? navigate('/ccict/notification') : navigate('/alumni/notifications')}>
           <span style={{ color: 'white', fontSize: 20 }}>🔔</span>
           <span style={{ color: 'white', fontSize: 12 }}>Notification</span>
         </div>
