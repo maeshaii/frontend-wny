@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../global/sidebar';
-import { fetchAlumniByYear, fetchTrackerResponsesByUser } from '../../../services/api';
+import { fetchAlumniByYear, fetchTrackerResponsesByUser, fetchAlumniDetails } from '../../../services/api';
 
 const AlumniData: React.FC = () => {
   const { year } = useParams<{ year: string }>();
@@ -37,6 +37,15 @@ const AlumniData: React.FC = () => {
               if (Array.isArray(ans)) return ans.join(', ');
               return ans || '';
             };
+            
+            // Helper to get tracker answer by question ID
+            const getTrackerAnswerById = (answers: any, questionId: number) => {
+              if (!answers) return '';
+              const ans = answers[questionId];
+              if (Array.isArray(ans)) return ans.join(', ');
+              return ans || '';
+            };
+            
             await Promise.all(data.alumni.map(async (alumni: any) => {
               const userId = alumni.id || alumni.user_id;
               if (userId) {
@@ -44,8 +53,8 @@ const AlumniData: React.FC = () => {
                 if (res.responses && res.responses.length > 0) {
                   trackerMap[userId] = {
                     company: getTrackerAnswerByLabel(res.responses[0].answers, 'company'),
-                    position: getTrackerAnswerByLabel(res.responses[0].answers, 'position'),
-                    salary: getTrackerAnswerByLabel(res.responses[0].answers, 'salary'),
+                    position_current: getTrackerAnswerById(res.responses[0].answers, 26), // Question 26: Current Position
+                    salary_current: getTrackerAnswerByLabel(res.responses[0].answers, 'salary'),
                   };
                 }
               }
@@ -68,11 +77,22 @@ const AlumniData: React.FC = () => {
   });
 
   const openModal = async (alumni: any) => {
-    setModalAlumni(alumni);
+    // Fetch the latest alumni data from the backend
+    let latestAlumni = alumni;
+    try {
+      const userId = alumni.id || alumni.user_id;
+      if (userId) {
+        const res = await fetchAlumniDetails(userId);
+        if (res.success && res.alumni) {
+          latestAlumni = res.alumni;
+        }
+      }
+    } catch (e) { /* fallback to passed alumni */ }
+    setModalAlumni(latestAlumni);
     setModalOpen(true);
     // Fetch tracker answers for this alumni
-    if (alumni.id || alumni.user_id) {
-      const userId = alumni.id || alumni.user_id;
+    if (latestAlumni.id || latestAlumni.user_id) {
+      const userId = latestAlumni.id || latestAlumni.user_id;
       const res = await fetchTrackerResponsesByUser(userId);
       setTrackerAnswers(res.responses && res.responses.length > 0 ? res.responses[0].answers : {});
     } else {
@@ -99,6 +119,30 @@ const AlumniData: React.FC = () => {
     if (Array.isArray(ans)) return ans.join(', ');
     return ans || '';
   };
+
+  function renderTrackerAnswers(): React.ReactNode {
+    if (!modalAlumni || !modalAlumni.tracker_answers) {
+      return null;
+    }
+    const entries = Object.entries(modalAlumni.tracker_answers);
+    if (!entries || entries.length === 0) {
+      return <span style={{ color: '#888', fontStyle: 'italic', marginLeft: 8 }}>No tracker answers available.</span>;
+    }
+    return (
+      <div>
+        <h3 style={{ marginTop: 20, marginBottom: 10 }}>All Tracker Answers</h3>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          {entries.map(([question, answer]) => (
+            <li key={question} style={{ padding: '6px 12px', borderBottom: '1px solid #eee' }}>
+              <>
+              <strong>{question}:</strong> {typeof answer === 'object' ? JSON.stringify(answer) : answer}
+              </>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: 'Arial, sans-serif' }}>
@@ -214,9 +258,9 @@ const AlumniData: React.FC = () => {
                 <th style={headerCell}>#</th>
                 <th style={headerCell}>Program Name</th>
                 <th style={headerCell}>Last Name</th>
+                <th style={headerCell}>Middle Name</th>
                 <th style={headerCell}>First Name</th>
                 <th style={headerCell}>Status</th>
-                <th style={headerCell}>Current Job</th>
                 <th style={headerCell}>Current Position</th>
                 <th style={headerCell}>Salary Current</th>
               </tr>
@@ -229,32 +273,38 @@ const AlumniData: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredAlumni.map((alumni, index) => {
-                  const userId = alumni.id || alumni.user_id;
-                  const tracker = trackerAnswersMap[userId] || {};
-                  return (
-                    <tr
-                      key={alumni.id || index}
-                      style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}
-                      onClick={() => openModal(alumni)}
-                    >
+                filteredAlumni.map((alumni, index) => (
+                  <tr
+                    key={index}
+                    style={{ cursor: 'pointer', transition: 'background 0.2s' }}
+                    onClick={() => openModal(alumni)}
+                    tabIndex={0}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') openModal(alumni); }}
+                    onMouseOver={e => (e.currentTarget.style.background = '#f0f4ff')}
+                    onMouseOut={e => (e.currentTarget.style.background = '')}
+                  >
                       <td style={bodyCell}>{String(index + 1).padStart(2, '0')}</td>
-                      <td style={bodyCell}>{typeof (alumni.program || alumni.Program_Name || alumni.course) === 'object' ? JSON.stringify(alumni.program || alumni.Program_Name || alumni.course) : (alumni.program || alumni.Program_Name || alumni.course || '')}</td>
-                      <td style={bodyCell}>{typeof (alumni.lastName || alumni.Last_Name || (alumni.name ? alumni.name.split(' ').slice(-1)[0] : '')) === 'object' ? JSON.stringify(alumni.lastName || alumni.Last_Name || (alumni.name ? alumni.name.split(' ').slice(-1)[0] : '')) : (alumni.lastName || alumni.Last_Name || (alumni.name ? alumni.name.split(' ').slice(-1)[0] : '') || '')}</td>
-                      <td style={bodyCell}>{typeof (alumni.firstName || alumni.First_Name || (alumni.name ? alumni.name.split(' ')[0] : '')) === 'object' ? JSON.stringify(alumni.firstName || alumni.First_Name || (alumni.name ? alumni.name.split(' ')[0] : '')) : (alumni.firstName || alumni.First_Name || (alumni.name ? alumni.name.split(' ')[0] : '') || '')}</td>
-                      <td style={bodyCell}>{typeof (alumni.status || alumni.Status || alumni.user_status) === 'object' ? JSON.stringify(alumni.status || alumni.Status || alumni.user_status) : (alumni.status || alumni.Status || alumni.user_status || '')}</td>
-                      <td style={bodyCell}>{typeof (alumni.company_name_current || alumni['Company name current'] || alumni.company || tracker.company) === 'object' ? JSON.stringify(alumni.company_name_current || alumni['Company name current'] || alumni.company || tracker.company) : (alumni.company_name_current || alumni['Company name current'] || alumni.company || tracker.company || '')}</td>
-                      <td style={bodyCell}>{typeof (alumni.position_current || alumni['Position current'] || tracker.position) === 'object' ? JSON.stringify(alumni.position_current || alumni['Position current'] || tracker.position) : (alumni.position_current || alumni['Position current'] || tracker.position || '')}</td>
-                      <td style={bodyCell}>{typeof (alumni.salary_current || alumni['Salary current'] || tracker.salary) === 'object' ? JSON.stringify(alumni.salary_current || alumni['Salary current'] || tracker.salary) : (alumni.salary_current || alumni['Salary current'] || tracker.salary || '')}</td>
+                      <td style={bodyCell}>{alumni.program || alumni.Program_Name || alumni.course || ''}</td>
+                    <td style={bodyCell}>{alumni.l_name || alumni.Last_Name || alumni.last_name || alumni.lastName || (alumni.name ? alumni.name.split(' ').slice(-1)[0] : '') || ''}</td>
+                    <td style={bodyCell}>{alumni.m_name || alumni.Middle_Name || alumni.middle_name || alumni.middleName || (alumni.name && alumni.name.split(' ').length > 2 ? alumni.name.split(' ').slice(1, -1).join(' ') : '') || ''}</td>
+                    <td style={bodyCell}>{alumni.f_name || alumni.First_Name || alumni.first_name || alumni.firstName || (alumni.name ? alumni.name.split(' ')[0] : '') || ''}</td>
+                      <td style={bodyCell}>{alumni.status || alumni.Status || alumni.user_status || ''}</td>
+                    <td style={bodyCell}>{
+                      alumni.position_current ||
+                      (trackerAnswersMap[alumni.id]?.position_current || trackerAnswersMap[alumni.user_id]?.position_current || '')
+                    }</td>
+                    <td style={bodyCell}>{
+                      alumni.salary_current ||
+                      (trackerAnswersMap[alumni.id]?.salary_current || trackerAnswersMap[alumni.user_id]?.salary_current || '')
+                    }</td>
                     </tr>
-                  );
-                })
+                ))
               )}
             </tbody>
           </table>
         </div>
         {/* Modal for full details */}
-        {modalOpen && modalAlumni && (
+        {modalAlumni && modalOpen && (
           <div style={{
             position: 'fixed',
             top: 0,
@@ -275,29 +325,28 @@ const AlumniData: React.FC = () => {
                 <tbody>
                   {Object.entries({
                     'CTU ID': modalAlumni.ctu_id || modalAlumni.CTU_ID || getTrackerAnswerByLabel('ctu id'),
-                    'First Name': modalAlumni.firstName || modalAlumni.First_Name || modalAlumni.first_name || (modalAlumni.name ? modalAlumni.name.split(' ')[0] : '') || getTrackerAnswerByLabel('first name'),
+                    'First Name': modalAlumni.f_name || modalAlumni.First_Name || modalAlumni.first_name || modalAlumni.firstName || (modalAlumni.name ? modalAlumni.name.split(' ')[0] : '') || getTrackerAnswerByLabel('first name'),
                     'Middle Name': modalAlumni.middleName || modalAlumni.Middle_Name || modalAlumni.middle_name || (modalAlumni.name && modalAlumni.name.split(' ').length > 2 ? modalAlumni.name.split(' ').slice(1, -1).join(' ') : '') || getTrackerAnswerByLabel('middle name'),
-                    'Last Name': modalAlumni.lastName || modalAlumni.Last_Name || modalAlumni.last_name || (modalAlumni.name ? modalAlumni.name.split(' ').slice(-1)[0] : '') || getTrackerAnswerByLabel('last name'),
+                    'Last Name': modalAlumni.l_name || modalAlumni.Last_Name || modalAlumni.last_name || modalAlumni.lastName || (modalAlumni.name ? modalAlumni.name.split(' ').slice(-1)[0] : '') || getTrackerAnswerByLabel('last name'),
                     'Gender': modalAlumni.gender || modalAlumni.Gender || getTrackerAnswerByLabel('gender'),
                     'Birthdate': modalAlumni.birthdate || modalAlumni.Birthdate || modalAlumni.birth_date || getTrackerAnswerByLabel('birthdate'),
                     'Phone Number': modalAlumni.phone_num || modalAlumni.Phone_Number || modalAlumni.phone || getTrackerAnswerByLabel('phone'),
                     'Address': modalAlumni.address || modalAlumni.Address || getTrackerAnswerByLabel('address'),
                     'Social Media': modalAlumni.social_media || modalAlumni.Social_Media || getTrackerAnswerByLabel('social'),
-                    'Civil Status': modalAlumni.civil_status || modalAlumni.Civil_Status || getTrackerAnswerByLabel('civil status'),
                     'Age': modalAlumni.age || modalAlumni.Age || getTrackerAnswerByLabel('age'),
                     'Email': modalAlumni.email || modalAlumni.Email || getTrackerAnswerByLabel('email'),
                     'Program Name': modalAlumni.program || modalAlumni.Program_Name || modalAlumni.course || getTrackerAnswerByLabel('program'),
                     'Status': modalAlumni.status || modalAlumni.Status || modalAlumni.user_status || getTrackerAnswerByLabel('status'),
                     'Company name current': modalAlumni.company_name_current || modalAlumni['Company name current'] || modalAlumni.company || getTrackerAnswerByLabel('company') || getTrackerAnswerByLabel('employer') || getTrackerAnswerByLabel('current company'),
-                    'Position current': modalAlumni.position_current || modalAlumni['Position current'] || getTrackerAnswerByLabel('position'),
+                    'Position current': modalAlumni.position_current || modalAlumni['Position current'] || getTrackerAnswerByLabel('current position'),
                     'Sector current': modalAlumni.sector_current || modalAlumni['Sector current'] || getTrackerAnswerByLabel('sector'),
                     'Employment duration current': modalAlumni.employment_duration_current || modalAlumni['Employment duration current'] || modalAlumni.employment_duration || getTrackerAnswerByLabel('employment duration') || getTrackerAnswerByLabel('how long') || getTrackerAnswerByLabel('duration'),
-                    'Salary current': modalAlumni.salary_current || modalAlumni['Salary current'] || getTrackerAnswerByLabel('salary'),
+                    'Salary current': modalAlumni.salary_current || modalAlumni['Salary current'] || modalAlumni.salary || getTrackerAnswerByLabel('salary'),
                     'Supporting document current': modalAlumni.supporting_document_current || modalAlumni['Supporting document current'] || getTrackerAnswerByLabel('supporting document'),
                     'Awards recognition current': modalAlumni.awards_recognition_current || modalAlumni['Awards recognition current'] || getTrackerAnswerByLabel('awards'),
                     'Supporting document awards recognition': modalAlumni.supporting_document_awards_recognition || modalAlumni['Supporting document awards recognition'] || getTrackerAnswerByLabel('awards'),
                     'Unemployment reason': modalAlumni.unemployment_reason || modalAlumni['Unemployment reason'] || getTrackerAnswerByLabel('unemployment'),
-                    'Pursue further study': modalAlumni.pursue_further_study || modalAlumni['Pursue further study'] || getTrackerAnswerByLabel('further study'),
+                    'Pursue further study': modalAlumni.pursue_further_study || modalAlumni['Pursue further study'] || getTrackerAnswerByLabel('pursue'),
                     'Date started': modalAlumni.date_started || modalAlumni['Date started'] || getTrackerAnswerByLabel('date started'),
                     'School name': modalAlumni.school_name || modalAlumni['School name'] || modalAlumni.institution || modalAlumni.university || getTrackerAnswerByLabel('school') || getTrackerAnswerByLabel('institution') || getTrackerAnswerByLabel('university'),
                   }).map(([label, value]) => (
@@ -312,6 +361,7 @@ const AlumniData: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+              {renderTrackerAnswers()}
             </div>
           </div>
         )}

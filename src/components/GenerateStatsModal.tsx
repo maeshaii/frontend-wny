@@ -289,10 +289,11 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
     pieDiv.style.padding = '20px';
     container.appendChild(pieDiv);
 
-    // Use ReactDOM to render charts
+    // Use React 18 createRoot API to render charts
     const { createElement } = require('react');
-    const { render, unmountComponentAtNode } = require('react-dom');
-    render(
+    const { createRoot } = require('react-dom/client');
+    const barRoot = createRoot(barDiv);
+    barRoot.render(
       createElement(ResponsiveContainer, { width: '100%', height: 200 },
         createElement(BarChart, { data: chartData.barData },
           createElement(CartesianGrid, { strokeDasharray: '3 3' }),
@@ -301,10 +302,10 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           createElement(Tooltip),
           createElement(Bar, { dataKey: 'value', fill: '#1D4E89' })
         )
-      ),
-      barDiv
+      )
     );
-    render(
+    const pieRoot = createRoot(pieDiv);
+    pieRoot.render(
       createElement(ResponsiveContainer, { width: '100%', height: 200 },
         createElement(PieChart, null,
           createElement(Pie, {
@@ -324,8 +325,7 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           createElement(Tooltip, null),
           createElement(Legend, null)
         )
-      ),
-      pieDiv
+      )
     );
 
     // Wait for charts to render
@@ -343,8 +343,8 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
     }
 
     // Clean up
-    unmountComponentAtNode(barDiv);
-    unmountComponentAtNode(pieDiv);
+    barRoot.unmount();
+    pieRoot.unmount();
     document.body.removeChild(container);
     return images;
   };
@@ -847,6 +847,12 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
                 <tr><td style={td}>Pursuing Further Study</td><td style={td}>{stats.pursuing_further_study}</td><td style={td}>{((stats.pursuing_further_study / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
                 <tr><td style={td}>Post Graduate Degree</td><td style={td}>{stats.post_graduate_degree}</td><td style={td}>{((stats.post_graduate_degree / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
                 <tr><td style={td}>Further Study Rate</td><td style={td}>{stats.further_study_rate}%</td><td style={td}></td></tr>
+                <tr key="ched-total-alumni"><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
+                <tr key="ched-pursuing-further-study"><td style={td}>Pursuing Further Study</td><td style={td}>{stats.pursuing_further_study}</td><td style={td}>{((stats.pursuing_further_study / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="ched-post-graduate-degree"><td style={td}>Post Graduate Degree</td><td style={td}>{stats.post_graduate_degree}</td><td style={td}>{((stats.post_graduate_degree / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr key="ched-job-alignment"><td style={td}>Job Alignment</td><td style={td}>{Number(stats.job_alignment_count) || 0}</td><td style={td}>{(stats.total_alumni ? ((Number(stats.job_alignment_count) || 0) / stats.total_alumni * 100).toFixed(2) : '0.00')}%</td></tr>
+                <tr key="ched-self-employed"><td style={td}>Self-Employed</td><td style={td}>{Number(stats.self_employed_count) || 0}</td><td style={td}>{(stats.total_alumni ? ((Number(stats.self_employed_count) || 0) / stats.total_alumni * 100).toFixed(2) : '0.00')}%</td></tr>
+                <tr key="ched-further-study-rate"><td style={td}>Further Study Rate</td><td style={td}>{stats.further_study_rate}%</td><td style={td}></td></tr>
               </>
             )}
             {type === 'SUC' && (
@@ -929,7 +935,11 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
         {allStats && (
           <div>
             {['QPRO', 'CHED', 'SUC', 'AACUP'].map((type) =>
-              allStats[type] ? renderSummarySection(type, allStats[type]) : null
+              allStats[type] ? (
+                <React.Fragment key={type}>
+                  {renderSummarySection(type, allStats[type])}
+                </React.Fragment>
+              ) : null
             )}
           </div>
         )}
