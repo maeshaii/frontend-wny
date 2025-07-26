@@ -53,8 +53,8 @@ const Login = () => {
         if (data.user.account_type.admin) {
           // Admin user - go to admin dashboard
           navigate('/dashboard');
-        } else if (data.user.account_type.user) {
-          // Alumni user - go to alumni dashboard
+        } else if (data.user.account_type.user || data.user.account_type.ojt) {
+          // Alumni or OJT user - go to alumni dashboard (they share the same UI)
           navigate('/alumni/dashboard');
         } else if (data.user.account_type.coordinator) {
           // Coordinator user - go to coordinator dashboard

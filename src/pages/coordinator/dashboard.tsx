@@ -384,12 +384,6 @@ export default function Dashboard() {
                 >
                   Import OJT
                 </button>
-                <button
-                  style={{...styles.importBtn, marginLeft: '10px'}}
-                  onClick={refreshOJTData}
-                >
-                  Refresh
-                </button>
               </>
             )}
           </div>
@@ -419,7 +413,7 @@ export default function Dashboard() {
                     onClick={() => setSelectedCard(yearData.year)}
                   >
                     <div style={styles.cardImage}></div>
-                    <p style={styles.cardText}>YEAR GRADUATED: {yearData.year}</p>
+                    <p style={styles.cardText}>BATCH: {yearData.year}</p>
                     <p style={styles.cardText}>Imported: {yearData.count}</p>
                   </div>
                 ))
