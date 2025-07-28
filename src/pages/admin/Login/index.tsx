@@ -48,23 +48,21 @@ const Login = () => {
     e.preventDefault();
     const data = await loginUser(acc_username, acc_password);
     if (data.success) {
+      // Save user data to localStorage for later use
+      localStorage.setItem('user', JSON.stringify(data.user));
+
       // Check account type and route accordingly
       if (data.user && data.user.account_type) {
         if (data.user.account_type.admin) {
-          // Admin user - go to admin dashboard
           navigate('/dashboard');
         } else if (data.user.account_type.user) {
-          // Alumni user - go to alumni dashboard
           navigate('/alumni/dashboard');
         } else if (data.user.account_type.coordinator) {
-          // Coordinator user - go to coordinator dashboard
           navigate('/coordinator/dashboard');
         } else {
-          // Other account types (PESO, etc.)
           navigate('/dashboard');
         }
       } else {
-        // Fallback to admin dashboard
         navigate('/dashboard');
       }
     } else {
