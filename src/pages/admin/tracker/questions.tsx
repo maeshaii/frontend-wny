@@ -343,7 +343,7 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   };
 
   // Preview/fill-out mode handlers
-  const handleResponseChange = (catId: number, qId: number, value: any) => {
+  const handleResponseChange = (catId: number, qId: number | string, value: any) => {
     setFormResponses(prev => ({
       ...prev,
       [qId]: value
@@ -608,15 +608,6 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
                         <label style={{ fontWeight: 500 }}>{getQuestionNumber(catIdx, qIdx)}. {q.text}</label>
                         <Autocomplete
                           options={jobList}
-
-                          getOptionLabel={option => option.title}
-                          onChange={(_, value) => {
-                            handleResponseChange(cat.id, q.id, value ? value.title : '');
-                            setFormResponses(prev => ({
-                              ...prev,
-                              job_code: value ? value.code : ''
-                            }));
-
                           getOptionLabel={option => typeof option === 'string' ? option : option.title}
                           filterOptions={(options) => options}
                           ListboxProps={{ style: { maxHeight: 400 } }}
@@ -632,7 +623,6 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
                               handleResponseChange(cat.id, q.id, '');
                               handleResponseChange(cat.id, 'Job Code', '');
                             }
-
                           }}
                           renderInput={params => (
                             <TextField {...params} label="Select or type Job Title" variant="outlined" fullWidth />

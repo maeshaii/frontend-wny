@@ -47,13 +47,11 @@ const AlumniDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    // Fetch user info from localStorage
     const userStr = localStorage.getItem('user');
     if (userStr) {
       const userObj = JSON.parse(userStr);
       setUser(userObj);
     } else {
-      // Not logged in, redirect to login
       navigate('/login');
     }
 
@@ -140,7 +138,7 @@ const AlumniDashboard: React.FC = () => {
             {/* Profile Content */}
             <div style={{ padding: '20px 20px 20px 20px' }}>
               <img 
-                src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/68.jpg'} 
+                src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo} 
                 
                 alt="Profile" 
                 style={{ 
@@ -293,7 +291,7 @@ const AlumniDashboard: React.FC = () => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <img 
-                src={user?.profile_pic || 'https://randomuser.me/api/portraits/women/68.jpg'} 
+                src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo} 
                 alt="Profile" 
                 style={{ width: 40, height: 40, borderRadius: '50%' }} 
               />
@@ -353,7 +351,7 @@ const AlumniDashboard: React.FC = () => {
 
               {/* Post Content */}
               <div style={{ fontSize: 14, color: '#333', marginBottom: 16, lineHeight: 1.5 }}>
-                {post.content}
+                {post.content} 
               </div>
 
               {/* Post Actions */}
@@ -416,4 +414,4 @@ const AlumniDashboard: React.FC = () => {
   );
 };
 
-export default AlumniDashboard;  
+export default AlumniDashboard;

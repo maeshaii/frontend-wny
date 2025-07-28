@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AlumniTopBar from '../../alumni/AlumniTopBar';
+
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+const userId = user.user_id;
 
 const AdminProfilePage: React.FC = () => {
   const [showProfile, setShowProfile] = useState(false);
@@ -21,7 +24,31 @@ const AdminProfilePage: React.FC = () => {
   const [profileBio, setProfileBio] = useState('');
   const [isBioModalOpen, setIsBioModalOpen] = useState(false);
   const [bioInput, setBioInput] = useState('');
+  const [loading, setLoading] = useState(false);
 
+  // Fetch bio from backend on mount
+  useEffect(() => {
+    fetch(`/api/admin/${userId}/profile_bio/`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.profile_bio) {
+          setProfileBio(data.profile_bio);
+        }
+      });
+  }, []);
+
+  // Save bio to backend
+  const handleSaveBio = async () => {
+    setLoading(true);
+    await fetch(`/api/admin/${userId}/profile_bio/`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile_bio: bioInput }),
+    });
+    setProfileBio(bioInput);
+    setIsBioModalOpen(false);
+    setLoading(false);
+  };
 
   return (
     <div style={{ background: '#f5f7fa', minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
@@ -274,75 +301,73 @@ const AdminProfilePage: React.FC = () => {
         </div>
       </div>
       {isBioModalOpen && (
-  <div style={{
-    position: 'fixed',
-    top: 0, left: 0, right: 0, bottom: 0,
-    background: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000
-  }}>
-    <div style={{
-      background: 'white',
-      padding: 24,
-      borderRadius: 12,
-      width: 400,
-      maxWidth: '90%',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-      position: 'relative'
-    }}>
-      <h3 style={{ marginBottom: 12 }}>Edit Bio</h3>
-      <textarea
-        value={bioInput}
-        onChange={(e) => setBioInput(e.target.value)}
-        rows={4}
-        style={{
-          width: '100%',
-          padding: 12,
-          fontSize: 14,
-          borderRadius: 8,
-          border: '1px solid #ccc',
-          marginBottom: 16
-        }}
-        placeholder="Enter your bio..."
-      />
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-        <button
-          onClick={() => setIsBioModalOpen(false)}
-          style={{
-            padding: '8px 16px',
-            border: 'none',
-            background: '#ccc',
-            borderRadius: 6,
-            cursor: 'pointer'
-          }}
-        >
-          Cancel
-        </button>
-        <button
-          onClick={() => {
-            setProfileBio(bioInput);
-            setIsBioModalOpen(false);
-          }}
-          style={{
-            padding: '8px 16px',
-            border: 'none',
-            background: '#174f84',
-            color: 'white',
-            borderRadius: 6,
-            cursor: 'pointer'
-          }}
-        >
-          Save
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: 24,
+            borderRadius: 12,
+            width: 400,
+            maxWidth: '90%',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            position: 'relative'
+          }}>
+            <h3 style={{ marginBottom: 12 }}>{profileBio ? 'Edit Bio' : 'Add Bio'}</h3>
+            <textarea
+              value={bioInput}
+              onChange={(e) => setBioInput(e.target.value)}
+              rows={4}
+              style={{
+                width: '100%',
+                padding: 12,
+                fontSize: 14,
+                borderRadius: 8,
+                border: '1px solid #ccc',
+                marginBottom: 16
+              }}
+              placeholder="Enter your bio..."
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button
+                onClick={() => setIsBioModalOpen(false)}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  background: '#ccc',
+                  borderRadius: 6,
+                  cursor: 'pointer'
+                }}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveBio}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  background: '#174f84',
+                  color: 'white',
+                  borderRadius: 6,
+                  cursor: 'pointer'
+                }}
+                disabled={loading}
+              >
+                {loading ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default AdminProfilePage; 
+export default AdminProfilePage;
