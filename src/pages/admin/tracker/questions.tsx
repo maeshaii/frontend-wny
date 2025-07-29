@@ -94,14 +94,18 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
     
     // Check if this is "PART IV: FURTHER STUDY" category
     if (category.title.toLowerCase().includes('further study')) {
-      // Show if "Did you pursue further study?" is answered "Yes"
+      // Show if "Did you pursue futher study?" is answered "Yes"
       const studyQuestion = categories.find(cat => 
-        cat.questions.some(q => q.text.toLowerCase().includes('pursue further study'))
+        cat.questions.some(q => {
+          const t = q.text.toLowerCase();
+          return t.includes('pursue') && t.includes('study');
+        })
       );
       if (studyQuestion) {
-        const studyQuestionId = studyQuestion.questions.find(q => 
-          q.text.toLowerCase().includes('pursue further study')
-        )?.id;
+        const studyQuestionId = studyQuestion.questions.find(q => {
+          const t = q.text.toLowerCase();
+          return t.includes('pursue') && t.includes('study');
+        })?.id;
         return formResponses[studyQuestionId!] === 'Yes';
       }
     }
@@ -339,7 +343,7 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   };
 
   // Preview/fill-out mode handlers
-  const handleResponseChange = (catId: number, qId: number, value: any) => {
+  const handleResponseChange = (catId: number, qId: number | string, value: any) => {
     setFormResponses(prev => ({
       ...prev,
       [qId]: value
@@ -604,134 +608,142 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
                         <label style={{ fontWeight: 500 }}>{getQuestionNumber(catIdx, qIdx)}. {q.text}</label>
                         <Autocomplete
                           options={jobList}
-                          getOptionLabel={option => option.title}
+                          getOptionLabel={option => typeof option === 'string' ? option : option.title}
+                          filterOptions={(options) => options}
+                          ListboxProps={{ style: { maxHeight: 400 } }}
+                          freeSolo={true} // Allow free text entry
                           onChange={(_, value) => {
-                            handleResponseChange(cat.id, q.id, value ? value.title : '');
-                            setFormResponses(prev => ({
-                              ...prev,
-                              job_code: value ? value.code : ''
-                            }));
+                            if (typeof value === 'string') {
+                              handleResponseChange(cat.id, q.id, value);
+                              handleResponseChange(cat.id, 'Job Code', '');
+                            } else if (value) {
+                              handleResponseChange(cat.id, q.id, value.title);
+                              handleResponseChange(cat.id, 'Job Code', value.code);
+                            } else {
+                              handleResponseChange(cat.id, q.id, '');
+                              handleResponseChange(cat.id, 'Job Code', '');
+                            }
                           }}
                           renderInput={params => (
-                            <TextField {...params} label="Select Job Title" variant="outlined" fullWidth />
+                            <TextField {...params} label="Select or type Job Title" variant="outlined" fullWidth />
                           )}
                         />
                       </div>
                     );
                   }
                   return (
-                    <div key={q.id} style={{ marginBottom: 16 }}>
-                      <label style={{ fontWeight: 500 }}>{getQuestionNumber(catIdx, qIdx)}. {q.text}</label>
-                      <div>
-                        {q.type === 'text' && (() => {
-                          const inputProps = getInputProps(q);
-                          return (
-                            <>
-                              <input
-                                type={inputProps.type}
-                                value={getPrefilledValue(q)}
-                                readOnly={isReadOnlyField(q)}
-                                placeholder={inputProps.placeholder}
-                                pattern={inputProps.pattern}
-                                onChange={e => {
-                                  handleResponseChange(cat.id, q.id, e.target.value);
-                                  // Validate on change
-                                  const err = inputProps.validate(e.target.value);
-                                  setValidationErrors(prev => ({ ...prev, [`${q.id}`]: err }));
-                                }}
-                                style={{ width: '100%', marginTop: 4 }}
-                              />
-                              {validationErrors[`${q.id}`] && (
-                                <div style={{ color: 'red', fontSize: 12 }}>{validationErrors[`${q.id}`]}</div>
-                              )}
-                            </>
-                          );
-                        })()}
-                        {q.type === 'file' && (
-                          <div className="file-upload-container">
+                  <div key={q.id} style={{ marginBottom: 16 }}>
+                    <label style={{ fontWeight: 500 }}>{getQuestionNumber(catIdx, qIdx)}. {q.text}</label>
+                    <div>
+                      {q.type === 'text' && (() => {
+                        const inputProps = getInputProps(q);
+                        return (
+                          <>
                             <input
-                              type="file"
-                              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                              type={inputProps.type}
+                              value={getPrefilledValue(q)}
+                              readOnly={isReadOnlyField(q)}
+                              placeholder={inputProps.placeholder}
+                              pattern={inputProps.pattern}
                               onChange={e => {
-                                const file = e.target.files && e.target.files[0];
-                                if (file) {
-                                  // Validate file size (10MB)
-                                  if (file.size > 10 * 1024 * 1024) {
-                                    alert('File size must be less than 10MB');
-                                    e.target.value = '';
-                                    return;
-                                  }
-                                  
-                                  // Validate file type
-                                  const allowedTypes = [
-                                    'application/pdf',
-                                    'application/msword',
-                                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                    'image/jpeg',
-                                    'image/jpg',
-                                    'image/png',
-                                    'image/gif'
-                                  ];
-                                  
-                                  if (!allowedTypes.includes(file.type)) {
-                                    alert('Please select a valid file type: PDF, DOC, DOCX, JPG, PNG, or GIF');
-                                    e.target.value = '';
-                                    return;
-                                  }
-                                }
-                                handleResponseChange(cat.id, q.id, file);
+                                handleResponseChange(cat.id, q.id, e.target.value);
+                                // Validate on change
+                                const err = inputProps.validate(e.target.value);
+                                setValidationErrors(prev => ({ ...prev, [`${q.id}`]: err }));
                               }}
+                              style={{ width: '100%', marginTop: 4 }}
                             />
-                            {formResponses[q.id] && (
-                              <div className="file-info">
-                                <strong>Selected file:</strong> {formResponses[q.id].name} 
-                                ({(formResponses[q.id].size / 1024 / 1024).toFixed(2)} MB)
-                              </div>
+                            {validationErrors[`${q.id}`] && (
+                              <div style={{ color: 'red', fontSize: 12 }}>{validationErrors[`${q.id}`]}</div>
                             )}
-                          </div>
-                        )}
-                        {q.type === 'radio' && q.options && q.options.map(opt => (
-                          <label key={opt} style={{ marginRight: 12 }}>
-                            <input
-                              type="radio"
-                              name={`${cat.id}_${q.id}`}
-                              value={opt}
-                              checked={formResponses[q.id] === opt}
-                              onChange={e => handleResponseChange(cat.id, q.id, opt)}
-                            />{' '}{opt}
-                          </label>
-                        ))}
-                        {q.type === 'checkbox' && q.options && q.options.map(opt => (
-                          <label key={opt} style={{ marginRight: 12 }}>
-                            <input
-                              type="checkbox"
-                              value={opt}
-                              checked={Array.isArray(formResponses[q.id]) && formResponses[q.id].includes(opt)}
-                              onChange={e => {
-                                const prev = Array.isArray(formResponses[q.id]) ? formResponses[q.id] : [];
-                                if (e.target.checked) {
-                                  handleResponseChange(cat.id, q.id, [...prev, opt]);
-                                } else {
-                                  handleResponseChange(cat.id, q.id, prev.filter((v: string) => v !== opt));
+                          </>
+                        );
+                      })()}
+                      {q.type === 'file' && (
+                        <div className="file-upload-container">
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                            onChange={e => {
+                              const file = e.target.files && e.target.files[0];
+                              if (file) {
+                                // Validate file size (10MB)
+                                if (file.size > 10 * 1024 * 1024) {
+                                  alert('File size must be less than 10MB');
+                                  e.target.value = '';
+                                  return;
                                 }
-                              }}
-                            />{' '}{opt}
-                          </label>
-                        ))}
-                        {q.type === 'multiple' && q.options && (
-                          <select
-                            value={formResponses[q.id] || ''}
-                            onChange={e => handleResponseChange(cat.id, q.id, e.target.value)}
-                            style={{ width: '100%', marginTop: 4 }}
-                          >
-                            <option value="">Select...</option>
-                            {q.options.map(opt => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
+                                
+                                // Validate file type
+                                const allowedTypes = [
+                                  'application/pdf',
+                                  'application/msword',
+                                  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                  'image/jpeg',
+                                  'image/jpg',
+                                  'image/png',
+                                  'image/gif'
+                                ];
+                                
+                                if (!allowedTypes.includes(file.type)) {
+                                  alert('Please select a valid file type: PDF, DOC, DOCX, JPG, PNG, or GIF');
+                                  e.target.value = '';
+                                  return;
+                                }
+                              }
+                              handleResponseChange(cat.id, q.id, file);
+                            }}
+                          />
+                          {formResponses[q.id] && (
+                            <div className="file-info">
+                              <strong>Selected file:</strong> {formResponses[q.id].name} 
+                              ({(formResponses[q.id].size / 1024 / 1024).toFixed(2)} MB)
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {q.type === 'radio' && q.options && q.options.map(opt => (
+                        <label key={opt} style={{ marginRight: 12 }}>
+                          <input
+                            type="radio"
+                            name={`${cat.id}_${q.id}`}
+                            value={opt}
+                            checked={formResponses[q.id] === opt}
+                            onChange={e => handleResponseChange(cat.id, q.id, opt)}
+                          />{' '}{opt}
+                        </label>
+                      ))}
+                      {q.type === 'checkbox' && q.options && q.options.map(opt => (
+                        <label key={opt} style={{ marginRight: 12 }}>
+                          <input
+                            type="checkbox"
+                            value={opt}
+                            checked={Array.isArray(formResponses[q.id]) && formResponses[q.id].includes(opt)}
+                            onChange={e => {
+                              const prev = Array.isArray(formResponses[q.id]) ? formResponses[q.id] : [];
+                              if (e.target.checked) {
+                                handleResponseChange(cat.id, q.id, [...prev, opt]);
+                              } else {
+                                handleResponseChange(cat.id, q.id, prev.filter((v: string) => v !== opt));
+                              }
+                            }}
+                          />{' '}{opt}
+                        </label>
+                      ))}
+                      {q.type === 'multiple' && q.options && (
+                        <select
+                          value={formResponses[q.id] || ''}
+                          onChange={e => handleResponseChange(cat.id, q.id, e.target.value)}
+                          style={{ width: '100%', marginTop: 4 }}
+                        >
+                          <option value="">Select...</option>
+                          {q.options.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      )}
                     </div>
+                  </div>
                   );
                 })}
               </div>

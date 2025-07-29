@@ -6,12 +6,13 @@ import ctulogo from '../../images/ctulogo.png';
 
 interface AlumniUser {
   name: string;
-  course?: string;
+  course?: string; 
   year_graduated?: string | number;
   profile_pic?: string;
+  profile_bio?: string;
+  profile_resume?: string;
   location?: string;
   university?: string;
-  bio?: string;
   resume?: string;
 }
 
@@ -22,11 +23,77 @@ const AlumniProfile: React.FC = () => {
   const { id } = useParams();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editProfilePic, setEditProfilePic] = useState<string | undefined>(user?.profile_pic);
-  const [editBio, setEditBio] = useState<string>(user?.bio || '');
-  // Remove all state and handlers related to resume (editResume, resumeFile, handleResumeChange, handleRemoveResume)
-  // Remove the Resume section from the modal UI
-  // Leave a comment where the resume section would go for future implementation
+  const [editBio, setEditBio] = useState<string>(user?.profile_bio|| '');
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
+
+  const [bioModalOpen, setBioModalOpen] = useState(false);
+  const [bioInput, setBioInput] = useState('');
+  const [bioLoading, setBioLoading] = useState(false);
+
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+
+  const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (file && file.type === 'application/pdf') {
+    setResumeFile(file);
+  } else {
+    alert('Please upload a valid PDF file.');
+  }
+};
+
+const handleSaveResume = async () => {
+  if (!resumeFile) {
+    alert("No resume file selected.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('resume', resumeFile);
+
+  const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = userObj.user_id || userObj.id;
+  const url = `http://127.0.0.1:8000/api/resume/update/?user_id=${userId}`;
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const updatedUser = { ...userObj, profile_resume: data.resume };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      alert("Resume uploaded!");
+    } else {
+      const err = await res.json();
+      alert("Failed to upload resume: " + (err.message || "Unknown error"));
+    }
+  } catch (err) {
+    alert("Network error: " + err);
+  }
+};
+const handleDeleteResume = async () => {
+  const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = userObj.user_id || userObj.id;
+
+  try {
+    const res = await fetch(`http://127.0.0.1:8000/api/shared/resume/update/?user_id=${userId}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      const updatedUser = { ...userObj, profile_resume: null };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      alert("Resume deleted.");
+    } else {
+      const err = await res.json();
+      alert("Failed to delete resume: " + (err.message || "Unknown error"));
+    }
+  } catch (err) {
+    alert("Network error: " + err);
+  }
+};
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
@@ -40,15 +107,25 @@ const AlumniProfile: React.FC = () => {
     if (userStr) {
       const userObj = JSON.parse(userStr);
       setUser(userObj);
+      setBioInput(userObj.profile_bio || '');
+
+      // Fetch latest profile from backend
+      const userId = userObj.user_id || userObj.id;
+      fetch(`http://127.0.0.1:8000/api/alumni/${userId}/`)
+        .then(res => res.json())
+        .then(profile => {
+          setUser(profile.alumni);
+          setBioInput(profile.alumni.profile_bio || '');
+          localStorage.setItem('user', JSON.stringify(profile.alumni));
+        });
     } else {
       navigate('/login');
     }
-  }, [navigate, id]);
+  }, [navigate]);
 
   const handleEditProfile = () => {
     setEditProfilePic(user?.profile_pic);
-    setEditBio(user?.bio || '');
-    // setEditResume(user?.resume); // This line is removed
+    setEditBio(user?.profile_bio || '');
     setEditModalOpen(true);
   };
 
@@ -63,25 +140,11 @@ const AlumniProfile: React.FC = () => {
     }
   };
 
-  // const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => { // This function is removed
-  //   const file = e.target.files?.[0];
-  //   if (file && file.type === 'application/pdf') {
-  //     setResumeFile(file);
-  //     const reader = new FileReader();
-  //     reader.onload = (ev) => setEditResume(ev.target?.result as string);
-  //     reader.readAsDataURL(file);
-  //   }
-  // };
-
   const handleRemoveProfilePic = () => {
     setEditProfilePic(undefined);
     setProfilePicFile(null);
   };
 
-  // const handleRemoveResume = () => { // This function is removed
-  //   setEditResume(undefined);
-  //   setResumeFile(null);
-  // };
 
   const handleSave = async () => {
     const formData = new FormData();
@@ -98,7 +161,6 @@ const AlumniProfile: React.FC = () => {
     }
 
     const url = `http://127.0.0.1:8000/api/shared/profile/update/?user_id=${userId}`;
-    console.log('Sending PUT to:', url);
     try {
       const response = await fetch(url, {
         method: 'PUT',
@@ -119,6 +181,67 @@ const AlumniProfile: React.FC = () => {
     }
   };
 
+   const handleSaveBio = async () => {
+    setBioLoading(true);
+    const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId = userObj.user_id || userObj.id;
+    if (!userId) {
+      alert('User ID not found. Please log in again.');
+      setBioLoading(false);
+      return;
+    }
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/admin/${userId}/profile_bio/`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile_bio: bioInput }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUser((prev) => prev ? { ...prev, profile_bio: data.profile_bio } : prev);
+        // Update localStorage as well
+        const updatedUser = { ...userObj, profile_bio: data.profile_bio };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setBioModalOpen(false);
+      } else {
+        alert('Failed to save bio.');
+      }
+    } catch (error) {
+      alert('Network error: ' + error);
+    }
+    setBioLoading(false);
+  };
+
+  const handleDeleteBio = async () => {
+    setBioLoading(true);
+    const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId = userObj.user_id || userObj.id;
+    if (!userId) {
+      alert('User ID not found. Please log in again.');
+      setBioLoading(false);
+      return;
+    }
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/admin/${userId}/profile_bio/`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile_bio: '' }),
+      });
+      if (response.ok) {
+        setUser((prev) => prev ? { ...prev, profile_bio: '' } : prev);
+        const updatedUser = { ...userObj, profile_bio: '' };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setBioInput('');
+        setBioModalOpen(false);
+      } else {
+        alert('Failed to delete bio.');
+      }
+    } catch (error) {
+      alert('Network error: ' + error);
+    }
+    setBioLoading(false);
+  };
+
   return (
     <div style={{ background: '#f5f7fa', minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
       <AlumniTopBar 
@@ -131,7 +254,7 @@ const AlumniProfile: React.FC = () => {
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 24, padding: '24px' }}>
         {/* Left Sidebar */}
         <div style={{ flex: 1, maxWidth: 280 }}>
-          {/* Introduction */}
+          {/* Introduction */} 
           <div style={{ 
             background: 'white', 
             borderRadius: 12, 
@@ -142,26 +265,100 @@ const AlumniProfile: React.FC = () => {
           }}>
             <div style={{ fontWeight: 'bold', marginBottom: 16, fontSize: 16 }}>Introduction</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button style={{ 
-                background: 'white', 
-                border: '1px solid #e0e0e0', 
-                borderRadius: 8, 
-                padding: '8px 16px', 
-                cursor: 'pointer',
-                fontSize: 14
-              }}>
-                Add Bio
+             {/* Show bio if exists, otherwise show Add Bio button */}
+          {user?.profile_bio?.trim() ? (
+            <div style={{
+              background: '#f5f7fa',
+              borderRadius: 8,
+              padding: '10px 12px',
+              fontSize: 14,
+              color: '#333',
+              marginBottom: 8,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span>{user.profile_bio}</span>
+              <button
+                style={{
+                  marginLeft: 8,
+                  background: '#eee',
+                  border: 'none',
+                  borderRadius: 6,
+                  padding: '4px 10px',
+                  cursor: 'pointer',
+                  fontSize: 12
+                }}
+                onClick={() => {
+                  setBioInput(user.profile_bio?.trim() || '');
+                  setBioModalOpen(true);
+                }}
+              >
+                Edit Bio
               </button>
-              <button style={{ 
-                background: 'white', 
-                border: '1px solid #e0e0e0', 
-                borderRadius: 8, 
-                padding: '8px 16px', 
+            </div>
+          ) : (
+            <button
+              style={{
+                background: 'white',
+                border: '1px solid #e0e0e0',
+                borderRadius: 8,
+                padding: '8px 16px',
                 cursor: 'pointer',
-                fontSize: 14
-              }}>
-                Add Resume
-              </button>
+                fontSize: 14,
+                marginBottom: 8
+              }}
+              onClick={() => setBioModalOpen(true)}
+            >
+              Add Bio
+            </button>
+          )}
+
+{user?.profile_resume ? (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <a 
+      href={`http://127.0.0.1:8000${user.profile_resume}`} 
+      target="_blank" 
+      rel="noopener noreferrer"
+      style={{ fontSize: 14, color: '#174f84' }}
+    >
+      View Resume
+    </a>
+    <button
+      onClick={handleDeleteResume}
+      style={{
+        background: '#e74c3c',
+        color: 'white',
+        border: 'none',
+        borderRadius: 6,
+        padding: '6px 12px',
+        fontSize: 14,
+        cursor: 'pointer'
+      }}
+    >
+      Delete Resume
+    </button>
+  </div>
+) : (
+  <>
+    <input type="file" accept="application/pdf" onChange={handleResumeChange} />
+    <button
+      onClick={handleSaveResume}
+      style={{
+        background: '#174f84',
+        color: 'white',
+        border: 'none',
+        borderRadius: 6,
+        padding: '6px 12px',
+        fontSize: 14,
+        cursor: 'pointer'
+      }}
+    >
+      Upload Resume
+    </button>
+  </>
+)}
+
             </div>
           </div>
 
@@ -254,7 +451,7 @@ const AlumniProfile: React.FC = () => {
               textAlign: 'center'
             }}>
               <img 
-                src={user?.profile_pic || ctulogo} 
+                src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo}
                 alt="Profile" 
                 style={{ 
                   width: 80, 
@@ -266,10 +463,10 @@ const AlumniProfile: React.FC = () => {
                 }} 
               />
               <div style={{ fontWeight: 'bold', fontSize: 18, color: '#333', marginBottom: 4, textTransform: 'uppercase' }}>
-                {user?.name || 'JEFFREY BATUCAN'}
+                {user?.name || 'namee'}
               </div>
               <div style={{ fontSize: 14, color: '#666' }}>
-                {user?.university || 'Cebu Technological University'}
+                {user?.university || 'wowow'}
               </div>
             </div>
           </div>
@@ -351,7 +548,89 @@ const AlumniProfile: React.FC = () => {
           </div>
         </div>
 
-        
+        {/* Bio Modal */}
+      {bioModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: 24,
+            borderRadius: 12,
+            width: 400,
+            maxWidth: '90%',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            position: 'relative'
+          }}>
+            <h3 style={{ marginBottom: 12 }}>Add Bio</h3>
+            <textarea
+              value={bioInput}
+              onChange={e => setBioInput(e.target.value)}
+              rows={4}
+              style={{
+                width: '100%',
+                padding: 12,
+                fontSize: 14,
+                borderRadius: 8,
+                border: '1px solid #ccc',
+                marginBottom: 16
+              }}
+              placeholder="Enter your bio..."
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+            <button
+              onClick={() => setBioModalOpen(false)}
+              style={{
+                padding: '8px 16px',
+                border: 'none',
+                background: '#ccc',
+                borderRadius: 6,
+                cursor: 'pointer'
+              }}
+              disabled={bioLoading}
+            >
+              Cancel
+            </button>
+            {user?.profile_bio?.trim() && (
+              <button
+                onClick={handleDeleteBio}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  background: '#e74c3c',
+                  color: 'white',
+                  borderRadius: 6,
+                  cursor: 'pointer'
+                }}
+                disabled={bioLoading}
+              >
+                {bioLoading ? 'Deleting...' : 'Delete Bio'}
+              </button>
+            )}
+            <button
+              onClick={handleSaveBio}
+              style={{
+                padding: '8px 16px',
+                border: 'none',
+                background: '#174f84',
+                color: 'white',
+                borderRadius: 6,
+                cursor: 'pointer'
+              }}
+              disabled={bioLoading}
+            >
+              {bioLoading ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+          </div>
+        </div>
+      )}
       </div>
 
       {/* Edit Profile Modal */}
@@ -369,12 +648,8 @@ const AlumniProfile: React.FC = () => {
                 <button onClick={handleRemoveProfilePic} style={{ background: '#eee', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>Remove</button>
               </div>
             </div>
-            {/* Bio */}
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontWeight: 600 }}>Bio</label><br />
-              <textarea value={editBio} onChange={e => setEditBio(e.target.value)} rows={3} style={{ width: '100%', borderRadius: 6, border: '1px solid #ccc', padding: 8, marginTop: 4 }} />
-              <button onClick={() => setEditBio('')} style={{ background: '#eee', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', marginTop: 4 }}>Clear Bio</button>
-            </div>
+            
+            
             {/* Resume (PDF) - Feature coming soon */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button onClick={() => setEditModalOpen(false)} style={{ background: '#eee', border: 'none', borderRadius: 6, padding: '8px 20px', cursor: 'pointer' }}>Cancel</button>
@@ -387,4 +662,4 @@ const AlumniProfile: React.FC = () => {
   );
 };
 
-export default AlumniProfile; 
+export default AlumniProfile;
