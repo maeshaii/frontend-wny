@@ -5,6 +5,12 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Fetch followers for a user
+export const fetchFollowers = async (userId: number) => {
+  const response = await api.get(`alumni/${userId}/followers/`);
+  return response.data;
+};
+
 
 // Login API function (JWT, for all account types)
 export const loginUser = async (acc_username: string, acc_password: string) => {
@@ -191,4 +197,4 @@ export const fetchAlumniDetails = async (userId: string | number) => {
   return response.data;
 };
 
-export default api;
+

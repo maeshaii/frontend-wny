@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Tracker.css';
 import { fetchTrackerResponsesByBatchYear, fetchAlumniByYear } from '../../../services/api';
+import { trackerApi, trackerUtils } from '../../../services/trackerApi';
 
 const Responses: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'summary' | 'view' | 'files'>(() => {
@@ -27,8 +28,7 @@ const Responses: React.FC = () => {
     // Fetch trackerFormId from backend
     const fetchFormId = async () => {
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/tracker/active-form/');
-        const data = await res.json();
+        const data = await trackerApi.getActiveForm();
         if (data && data.tracker_form_id) {
           setTrackerFormId(data.tracker_form_id);
         } else {
@@ -43,8 +43,7 @@ const Responses: React.FC = () => {
   }, []);
 
   // Calculate target batch year (current year - 2)
-  const currentYear = new Date().getFullYear();
-  const targetBatchYear = currentYear - 2;
+  const targetBatchYear = trackerUtils.getTargetBatchYear();
 
   // Fetch categories (questions), responses, and accepting state from backend
   useEffect(() => {
@@ -52,8 +51,7 @@ const Responses: React.FC = () => {
     const fetchData = async () => {
       try {
         // Fetch questions/categories
-      const qRes = await fetch('http://127.0.0.1:8000/api/tracker/questions/');
-      const qData = await qRes.json();
+        const qData = await trackerApi.getQuestions();
         if (qData && qData.categories) {
           setCategories(qData.categories);
         } else {
@@ -91,10 +89,9 @@ const Responses: React.FC = () => {
       
       // Fetch accepting state
         try {
-      const aRes = await fetch(`http://127.0.0.1:8000/api/tracker/accepting/${trackerFormId}/`);
-      const aData = await aRes.json();
-      if (aData && typeof aData.accepting_responses === 'boolean') {
-        setAccepting(aData.accepting_responses);
+          const aData = await trackerApi.getAcceptingStatus(trackerFormId);
+          if (aData && typeof aData.accepting_responses === 'boolean') {
+            setAccepting(aData.accepting_responses);
           } else {
             console.warn('Invalid accepting state data:', aData);
           }
@@ -104,8 +101,7 @@ const Responses: React.FC = () => {
 
         // Fetch file upload statistics
         try {
-          const fileRes = await fetch('http://127.0.0.1:8000/api/tracker/file-stats/');
-          const fileData = await fileRes.json();
+          const fileData = await trackerApi.getFileStats();
           if (fileData && fileData.success && fileData.stats) {
             setFileStats(fileData.stats);
           } else {
@@ -270,23 +266,18 @@ const Responses: React.FC = () => {
                 const newAccepting = !accepting;
                 setAccepting(newAccepting);
                   
-                  const res = await fetch(`http://127.0.0.1:8000/api/tracker/update-accepting/${trackerFormId}/`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ accepting_responses: newAccepting })
-                });
+                  const data = await trackerApi.updateAcceptingStatus(trackerFormId, newAccepting);
                   
-                  if (!res.ok) {
-                    throw new Error(`HTTP error! status: ${res.status}`);
-                  }
-                  
-                // Re-fetch backend value to ensure sync
-                const aRes = await fetch(`http://127.0.0.1:8000/api/tracker/accepting/${trackerFormId}/`);
-                const aData = await aRes.json();
-                if (aData && typeof aData.accepting_responses === 'boolean') {
-                  setAccepting(aData.accepting_responses);
+                  if (data.success) {
+                    // Re-fetch backend value to ensure sync
+                    const aData = await trackerApi.getAcceptingStatus(trackerFormId);
+                    if (aData && typeof aData.accepting_responses === 'boolean') {
+                      setAccepting(aData.accepting_responses);
+                    } else {
+                      console.warn('Invalid accepting state data received:', aData);
+                    }
                   } else {
-                    console.warn('Invalid accepting state data received:', aData);
+                    throw new Error(data.message || 'Failed to update accepting state');
                   }
                 } catch (error) {
                   console.error('Error updating accepting state:', error);
