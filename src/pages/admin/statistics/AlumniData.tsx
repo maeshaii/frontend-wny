@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../global/sidebar';
 import { fetchAlumniByYear, fetchTrackerResponsesByUser, fetchAlumniDetails } from '../../../services/api';
+import { trackerApi } from '../../../services/trackerApi';
 
 const AlumniData: React.FC = () => {
   const { year } = useParams<{ year: string }>();
@@ -25,8 +26,7 @@ const AlumniData: React.FC = () => {
           // Fetch tracker answers for all alumni in the list
           const trackerMap: Record<number, any> = {};
           if (data.alumni && data.alumni.length > 0) {
-            const qRes = await fetch('http://127.0.0.1:8000/api/tracker/questions/');
-            const qData = await qRes.json();
+            const qData = await trackerApi.getQuestions();
             const trackerQuestions = qData.categories ? qData.categories.flatMap((cat: any) => cat.questions) : [];
             // Helper to get tracker answer by label for a given answers object
             const getTrackerAnswerByLabel = (answers: any, label: string) => {
@@ -98,9 +98,8 @@ const AlumniData: React.FC = () => {
     } else {
       setTrackerAnswers([]);
     }
-    // Fetch tracker questions for mapping
-    const qRes = await fetch('http://127.0.0.1:8000/api/tracker/questions/');
-    const qData = await qRes.json();
+            // Fetch tracker questions for mapping
+        const qData = await trackerApi.getQuestions();
     setTrackerQuestions(qData.categories ? qData.categories.flatMap((cat: any) => cat.questions) : []);
   };
 

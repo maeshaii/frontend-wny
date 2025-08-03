@@ -1,5 +1,6 @@
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import './Tracker.css';
+import { trackerApi } from '../../../services/trackerApi';
 import ctulogo from '../../../images/ctulogo.png';
 import { fetchAlumniByYear, sendReminders, fetchAlumniList } from '../../../services/api';
 
@@ -18,8 +19,7 @@ interface TrackerResponse {
 }
 
 const fetchTrackerResponses = async () => {
-  const response = await fetch('http://127.0.0.1:8000/api/tracker/list-responses/');
-  return response.json();
+  return await trackerApi.getResponsesList();
 };
 
 const Settings: React.FC = () => {

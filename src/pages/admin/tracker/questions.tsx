@@ -1,5 +1,6 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
 import './Tracker.css';
+import { trackerApi } from '../../../services/trackerApi';
 import { fetchAlumniDetails } from '../../../services/api';
 import { useNavigate } from 'react-router-dom';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -127,20 +128,11 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   const handleUpdateCategory = async (catIdx: number) => {
     try {
       const categoryId = categories[catIdx].id;
-      const res = await fetch(`http://127.0.0.1:8000/api/tracker/update-category/${categoryId}/`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: editCategoryDraft.title,
-          description: editCategoryDraft.description || ''
-        })
+      const data = await trackerApi.updateCategory(categoryId, {
+        title: editCategoryDraft.title,
+        description: editCategoryDraft.description || ''
       });
       
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      
-      const data = await res.json();
       if (data.success) {
         setCategories(cats => cats.map((cat, i) =>
           i === catIdx ? { ...cat, ...data.category } : cat
@@ -160,15 +152,8 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   const handleDeleteCategory = async (catIdx: number) => {
     try {
       const categoryId = categories[catIdx].id;
-      const res = await fetch(`http://127.0.0.1:8000/api/tracker/delete-category/${categoryId}/`, {
-        method: 'DELETE'
-      });
+      const data = await trackerApi.deleteCategory(categoryId);
       
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      
-      const data = await res.json();
       if (data.success) {
         setCategories(cats => cats.filter((_, i) => i !== catIdx));
       } else {
@@ -190,20 +175,11 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   const handleSaveNewCategory = async () => {
     if (!newCategoryDraft.title) return;
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/tracker/add-category/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: newCategoryDraft.title,
-          description: newCategoryDraft.description || ''
-        })
+      const data = await trackerApi.addCategory({
+        title: newCategoryDraft.title,
+        description: newCategoryDraft.description || ''
       });
       
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      
-      const data = await res.json();
       if (data.success) {
         setCategories(cats => [...cats, data.category]);
         setAddingCategory(false);
@@ -243,22 +219,13 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   const handleSaveNewQuestion = async (catIdx: number) => {
     if (!newQuestionDraft.text || !newQuestionDraft.type) return;
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/tracker/add-question/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          category_id: categories[catIdx].id,
-          text: newQuestionDraft.text,
-          type: newQuestionDraft.type,
-          options: newQuestionDraft.type !== 'text' ? newQuestionDraft.options?.filter(opt => opt) : []
-        })
+      const data = await trackerApi.addQuestion({
+        category_id: categories[catIdx].id,
+        text: newQuestionDraft.text,
+        type: newQuestionDraft.type,
+        options: newQuestionDraft.type !== 'text' ? newQuestionDraft.options?.filter(opt => opt) : []
       });
       
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      
-      const data = await res.json();
       if (data.success) {
         setCategories(cats => cats.map((cat, i) =>
           i === catIdx
@@ -306,21 +273,12 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   const handleUpdateQuestion = async (catIdx: number, qIdx: number) => {
     try {
       const questionId = categories[catIdx].questions[qIdx].id;
-      const res = await fetch(`http://127.0.0.1:8000/api/tracker/update-question/${questionId}/`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: editQuestionDraft.text,
-          type: editQuestionDraft.type,
-          options: editQuestionDraft.type !== 'text' ? editQuestionDraft.options?.filter(opt => opt) : []
-        })
+      const data = await trackerApi.updateQuestion(questionId, {
+        text: editQuestionDraft.text,
+        type: editQuestionDraft.type,
+        options: editQuestionDraft.type !== 'text' ? editQuestionDraft.options?.filter(opt => opt) : []
       });
       
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      
-      const data = await res.json();
       if (data.success) {
         setCategories(cats => cats.map((cat, i) =>
           i === catIdx
@@ -354,15 +312,8 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   const handleDeleteQuestion = async (catIdx: number, qIdx: number) => {
     try {
       const questionId = categories[catIdx].questions[qIdx].id;
-      const res = await fetch(`http://127.0.0.1:8000/api/tracker/delete-question/${questionId}/`, {
-        method: 'DELETE'
-      });
+      const data = await trackerApi.deleteQuestion(questionId);
       
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      
-      const data = await res.json();
       if (data.success) {
         setCategories(cats => cats.map((cat, i) =>
           i === catIdx
@@ -416,11 +367,7 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   // Fetch questions from backend
   const fetchQuestions = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/tracker/questions/');
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      const data = await res.json();
+      const data = await trackerApi.getQuestions();
       if (data && data.categories) {
         setCategories(data.categories);
       } else {
