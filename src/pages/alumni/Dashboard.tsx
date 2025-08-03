@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { fetchNotifications } from '../../services/api';
 import AlumniTopBar from './AlumniTopBar';
 import ctulogo from '../../images/ctulogo.png';
+import './dashboard.css';
 
 interface AlumniUser {
   name: string;
@@ -51,6 +52,18 @@ const AlumniDashboard: React.FC = () => {
     if (userStr) {
       const userObj = JSON.parse(userStr);
       setUser(userObj);
+
+      // Fetch users for "People you may know" excluding admin and current user
+      fetch(`/api/users_list_view?current_user_id=${userObj.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setSuggestedUsers(data.users);
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching users:', error);
+        });
     } else {
       navigate('/login');
     }
@@ -82,21 +95,10 @@ const AlumniDashboard: React.FC = () => {
         reposts: 2
       }
     ]);
-
-    // Mock data for suggested users
-    setSuggestedUsers([
-      { id: 1, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/women/1.jpg" },
-      { id: 2, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/men/2.jpg" },
-      { id: 3, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/women/3.jpg" },
-      { id: 4, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/men/4.jpg" },
-      { id: 5, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/women/5.jpg" },
-      { id: 6, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/men/6.jpg" },
-      { id: 7, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/women/7.jpg" },
-    ]);
   }, [navigate]);
 
   return (
-    <div style={{ background: '#f5f7fa', minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
+    <div className="page-container">
       <AlumniTopBar 
         showProfile={showProfile} 
         setShowProfile={setShowProfile} 
@@ -104,22 +106,12 @@ const AlumniDashboard: React.FC = () => {
       />
 
       {/* Main Content */}
-      <div style={{ maxWidth: 1200, margin: '24px auto', display: 'flex', gap: 24, padding: '0 24px' }}>
+      <div className="main-content">
         {/* Left Sidebar */}
-        <div style={{ flex: 1, maxWidth: 280, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="left-sidebar">
           {/* Profile Card */}
           <div 
-            style={{ 
-              background: 'white', 
-              borderRadius: 12, 
-              color: '#333',
-              textAlign: 'center',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-              border: '1px solid #e0e0e0',
-              overflow: 'hidden',
-              cursor: 'pointer',
-              transition: 'transform 0.2s ease-in-out'
-            }}
+            className="profile-card"
             onClick={() => navigate('/alumni/profile')}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'scale(1.02)';
@@ -129,240 +121,121 @@ const AlumniDashboard: React.FC = () => {
             }}
           >
             {/* Orange Header Bar */}
-            <div style={{ 
-              background: '#ff6b35', 
-              height: 40, 
-              width: '100%'
-            }}></div>
+            <div className="orange-header-bar"></div>
             
             {/* Profile Content */}
-            <div style={{ padding: '20px 20px 20px 20px' }}>
+            <div className="profile-content">
               <img 
                 src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo} 
-                
                 alt="Profile" 
-                style={{ 
-                  width: 80, 
-                  height: 80, 
-                  borderRadius: '50%', 
-                  marginBottom: 12,
-                  border: '3px solid white',
-                  marginTop: -40
-                }} 
+                className="profile-image"
               />
-              <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 4, color: '#333' }}>
+              <div className="profile-name">
                 {user?.name }
               </div>
-              <div style={{ fontSize: 14, color: '#666' }}>
+              <div className="profile-university">
                 {user?.university}
               </div>
             </div>
           </div>
 
           {/* Quick Links */}
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ 
-              flex: 1, 
-              background: 'white', 
-              borderRadius: 12, 
-              textAlign: 'center',
-              color: '#333',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-              border: '1px solid #e0e0e0',
-              overflow: 'hidden'
-            }}>
+          <div className="quick-links">
+            <div className="quick-link-card">
               {/* Orange Header Bar */}
-              <div style={{ 
-                background: '#ff6b35', 
-                height: 30, 
-                width: '100%'
-              }}></div>
+              <div className="quick-link-orange-header"></div>
               
               {/* Content */}
-              <div style={{ padding: '12px 8px' }}>
-                <div style={{ 
-                  width: 40, 
-                  height: 40, 
-                  background: '#2d5016', 
-                  borderRadius: '50%', 
-                  margin: '0 auto 8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18,
-                  fontWeight: 'bold',
-                  color: '#90EE90'
-                }}>
+              <div className="quick-link-content">
+                <div className="quick-link-icon ccict-icon">
                   C
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 'bold', color: '#333', textTransform: 'uppercase' }}>CCICT</div>
+                <div className="quick-link-text">CCICT</div>
               </div>
-          </div>
-            <div style={{ 
-              flex: 1, 
-              background: 'white', 
-              borderRadius: 12, 
-              textAlign: 'center',
-              color: '#333',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-              border: '1px solid #e0e0e0',
-              overflow: 'hidden'
-            }}>
+            </div>
+            <div className="quick-link-card">
               {/* Orange Header Bar */}
-              <div style={{ 
-                background: '#ff6b35', 
-                height: 30, 
-                width: '100%'
-              }}></div>
+              <div className="quick-link-orange-header"></div>
               
               {/* Content */}
-              <div style={{ padding: '12px 8px' }}>
-                <div style={{ 
-                  width: 40, 
-                  height: 40, 
-                  background: '#FFD700', 
-                  borderRadius: '50%', 
-                  margin: '0 auto 8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18,
-                  fontWeight: 'bold',
-                  color: '#000080'
-                }}>
+              <div className="quick-link-content">
+                <div className="quick-link-icon peso-icon">
                   ✱
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 'bold', color: '#333', textTransform: 'uppercase' }}>PESO</div>
+                <div className="quick-link-text">PESO</div>
               </div>
             </div>
           </div>
 
           {/* Forum Link */}
-          <div style={{ 
-            background: 'white', 
-            borderRadius: 12, 
-            textAlign: 'center',
-            color: '#333',
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-            border: '1px solid #e0e0e0',
-            overflow: 'hidden'
-          }}>
+          <div className="forum-link">
             {/* Orange Header Bar */}
-            <div style={{ 
-              background: '#ff6b35', 
-              height: 30, 
-              width: '100%'
-            }}></div>
+            <div className="forum-link-orange-header"></div>
             
             {/* Content */}
-            <div style={{ padding: '12px 8px' }}>
-              <div style={{ 
-                width: 40, 
-                height: 40, 
-                background: '#000080', 
-                borderRadius: '50%', 
-                margin: '0 auto 8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 16,
-                fontWeight: 'bold',
-                color: 'white'
-              }}>
-                W
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 'bold', color: '#333', textTransform: 'uppercase' }}>FORUM</div>
-            </div>
+            <div className="forum-link-icon">W</div>
+            <div className="forum-link-text">FORUM</div>
           </div>
         </div>
 
         {/* Center Content */}
-        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="center-content">
           {/* Start a Post */}
-          <div style={{ 
-            background: 'white', 
-            borderRadius: 12, 
-            padding: 20, 
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-            border: '1px solid #e0e0e0'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="post-start">
+            <div className="post-start-input-container">
               <img 
                 src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo} 
                 alt="Profile" 
-                style={{ width: 40, height: 40, borderRadius: '50%' }} 
+                className="post-start-profile-image"
               />
               <input 
                 type="text" 
                 placeholder="Start a post" 
-                style={{ 
-                  flex: 1, 
-                  borderRadius: 20, 
-                  border: '1px solid #e0e0e0', 
-                  padding: '10px 16px',
-                  fontSize: 14
-                }} 
+                className="post-start-input"
               />
             </div>
           </div>
 
           {/* Posts Feed */}
           {posts.map((post) => (
-            <div key={post.id} style={{ 
-              background: 'white', 
-              borderRadius: 12, 
-              padding: 20, 
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-              border: '1px solid #e0e0e0'
-            }}>
+            <div key={post.id} className="post-feed-card">
               {/* Post Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className="post-header">
+                <div className="post-header-left">
                   <img 
                     src={post.author.profile_pic || ctulogo} 
                     alt="Profile" 
-                    style={{ width: 40, height: 40, borderRadius: '50%' }} 
+                    className="post-header-profile-image"
                   />
-                                <div>
-                <div style={{ fontWeight: 'bold', fontSize: 14 }}>{post.author.name}</div>
-                <div style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span>3,000,000 Followers</span>
-                  <span>•</span>
-                  <span>{post.timestamp}</span>
-                  <span>🌐</span>
+                  <div>
+                    <div className="post-author-info">{post.author.name}</div>
+                    <div className="post-author-details">
+                      <span>3,000,000 Followers</span>
+                      <span>•</span>
+                      <span>{post.timestamp}</span>
+                      <span>🌐</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-                </div>
-                <button style={{ 
-                  background: '#174f84', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: 6, 
-                  padding: '6px 12px',
-                  fontSize: 12,
-                  cursor: 'pointer'
-                }}>
+                <button className="follow-button">
                   + Follow
                 </button>
               </div>
 
               {/* Post Content */}
-              <div style={{ fontSize: 14, color: '#333', marginBottom: 16, lineHeight: 1.5 }}>
+              <div className="post-content">
                 {post.content} 
               </div>
 
               {/* Post Actions */}
-              <div style={{ display: 'flex', gap: 24, fontSize: 13, color: '#666' }}>
-                <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div className="post-actions">
+                <span className="post-action-item">
                   ❤️ Like
                 </span>
-                <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span className="post-action-item">
                   💬 Comment
                 </span>
-                <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span className="post-action-item">
                   🔄 Repost
                 </span>
               </div>
@@ -371,37 +244,19 @@ const AlumniDashboard: React.FC = () => {
         </div>
 
        {/* Right Sidebar */}
-       <div style={{ flex: 1, maxWidth: 280 }}>
-          <div
-            style={{
-              background: 'white',
-              borderRadius: 12,
-              padding: 20,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-              border: '1px solid #e0e0e0',
-            }}
-          >
-            <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 16 }}>People you may know</div>
+       <div className="right-sidebar">
+          <div className="people-you-may-know-card">
+            <div className="people-you-may-know-title">People you may know</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {suggestedUsers.map((user) => (
-                <div key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div key={user.id} className="suggested-user-item">
                   <img
                     src={user.profile_pic}
                     alt={user.name}
-                    style={{ width: 40, height: 40, borderRadius: '50%' }}
+                    className="suggested-user-profile-image"
                   />
-                  <div style={{ flex: 1, fontSize: 14, color: '#666' }}>{user.name}</div>
-                  <button
-                    style={{
-                      background: '#174f84',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: 6,
-                      padding: '6px 12px',
-                      fontSize: 12,
-                      cursor: 'pointer',
-                    }}
-                  >
+                  <div className="suggested-user-name">{user.name}</div>
+                  <button className="suggested-user-follow-button">
                     Follow
                   </button>
                 </div>
