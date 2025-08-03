@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AlumniTopBar from './AlumniTopBar';
 import ctulogo from '../../images/ctulogo.png';
-
+import './profile.css';
+import { fetchFollowers } from '../../services/api';  // Import fetchFollowers
 
 interface AlumniUser {
   name: string;
@@ -20,11 +21,77 @@ const AlumniProfile: React.FC = () => {
   const [user, setUser] = useState<AlumniUser | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id } = useParams<{ id?: string }>();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editProfilePic, setEditProfilePic] = useState<string | undefined>(user?.profile_pic);
   const [editBio, setEditBio] = useState<string>(user?.profile_bio|| '');
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
+  
+  const [isOwnProfile, setIsOwnProfile] = useState(true);
+
+  // Add followers state
+  const [followers, setFollowers] = useState<any[]>([]);
+
+  // Load user data based on id param or localStorage user
+  useEffect(() => {
+    const loadUser = async () => {
+      let userId = id;
+      if (!userId) {
+        // No id param, load logged-in user
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
+          navigate('/login');
+          return;
+        }
+          const userObj = JSON.parse(userStr);
+          userId = userObj.user_id || userObj.id;
+          setIsOwnProfile(true);
+      } else {
+        setIsOwnProfile(false);
+      }
+
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/api/alumni/${userId}/`);
+        if (res.ok) {
+          const profile = await res.json();
+          setUser(profile.alumni);
+          setEditBio(profile.alumni.profile_bio || '');
+          if (userId === (JSON.parse(localStorage.getItem('user') || '{}').user_id || JSON.parse(localStorage.getItem('user') || '{}').id)) {
+            localStorage.setItem('user', JSON.stringify(profile.alumni));
+          }
+          // Fetch followers for this user, ensure userId is number
+          const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+          if (numericUserId !== undefined && numericUserId !== null && !isNaN(numericUserId)) {
+            fetchFollowers(numericUserId)
+              .then(data => {
+                if (data.success && data.followers) {
+                  setFollowers(data.followers);
+                } else {
+                  setFollowers([]);
+                }
+              })
+              .catch(() => setFollowers([]));
+          } else {
+            setFollowers([]);
+          }
+        } else {
+          alert('Failed to load profile.');
+          if (userId === (JSON.parse(localStorage.getItem('user') || '{}').user_id || JSON.parse(localStorage.getItem('user') || '{}').id)) {
+            navigate('/login');
+          }
+        }
+      } catch (error) {
+        alert('Network error: ' + error);
+        if (userId === (JSON.parse(localStorage.getItem('user') || '{}').user_id || JSON.parse(localStorage.getItem('user') || '{}').id)) {
+          navigate('/login');
+        }
+      }
+    };
+    loadUser();
+  }, [id, navigate]);
+
+  // Other existing state and handlers remain unchanged...
+
 
   const [bioModalOpen, setBioModalOpen] = useState(false);
   const [bioInput, setBioInput] = useState('');
@@ -78,7 +145,7 @@ const handleDeleteResume = async () => {
   const userId = userObj.user_id || userObj.id;
 
   try {
-    const res = await fetch(`http://127.0.0.1:8000/api/shared/resume/update/?user_id=${userId}`, {
+    const res = await fetch(`http://127.0.0.1:8000/api/resume/delete/?user_id=${userId}`, {
       method: 'DELETE',
     });
     if (res.ok) {
@@ -125,7 +192,6 @@ const handleDeleteResume = async () => {
 
   const handleEditProfile = () => {
     setEditProfilePic(user?.profile_pic);
-    setEditBio(user?.profile_bio || '');
     setEditModalOpen(true);
   };
 
@@ -140,46 +206,79 @@ const handleDeleteResume = async () => {
     }
   };
 
-  const handleRemoveProfilePic = () => {
-    setEditProfilePic(undefined);
-    setProfilePicFile(null);
-  };
-
-
-  const handleSave = async () => {
-    const formData = new FormData();
-    if (profilePicFile) {
-      formData.append('profile_pic', profilePicFile);
-    }
-    formData.append('bio', editBio);
-
+  const handleRemoveProfilePic = async () => {
     const userObj = JSON.parse(localStorage.getItem('user') || '{}');
     const userId = userObj.user_id || userObj.id;
     if (!userId) {
       alert('User ID not found. Please log in again.');
       return;
     }
-
-    const url = `http://127.0.0.1:8000/api/shared/profile/update/?user_id=${userId}`;
     try {
-      const response = await fetch(url, {
-        method: 'PUT',
-        body: formData,
+      const res = await fetch(`http://127.0.0.1:8000/api/alumni/profile/delete/?user_id=${userId}`, {
+        method: 'DELETE',
       });
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        setEditModalOpen(false);
-        window.location.reload();
+      if (res.ok) {
+        setEditProfilePic(undefined);
+        setProfilePicFile(null);
+        const updatedUser = { ...userObj, profile_pic: null };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        alert('Profile picture removed.');
       } else {
-        const err = await response.json();
-        alert('Failed to update profile: ' + (err.message || 'Unknown error'));
+        const err = await res.json();
+        alert('Failed to remove profile picture: ' + (err.message || 'Unknown error'));
       }
     } catch (error) {
       alert('Network error: ' + error);
     }
   };
+
+// Call this on edit/save
+const handleSave = async () => {
+  if (!profilePicFile && !editBio) {
+    alert('No changes to save.');
+    return;
+  }
+
+  const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = userObj.user_id || userObj.id;
+  if (!userId) {
+    alert('User ID not found. Please log in again.');
+    return;
+  }
+
+  const formData = new FormData();
+  if (profilePicFile) {
+    formData.append('profile_pic', profilePicFile);
+  }
+  formData.append('bio', editBio);
+
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/api/alumni/profile/update/?user_id=${userId}`, {
+      method: 'PUT',
+      body: formData,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const updatedUser = {
+        ...userObj,
+        ...data.user,
+        profile_pic: data.user.profile_pic + '?t=' + new Date().getTime(), // force reload
+      };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      setEditModalOpen(false);
+      setProfilePicFile(null);
+      alert('Profile updated successfully.');
+    } else {
+      const err = await response.json();
+      alert('Failed to update profile: ' + (err.message || 'Unknown error'));
+    }
+  } catch (error) {
+    alert('Network error: ' + error);
+  }
+};
 
    const handleSaveBio = async () => {
     setBioLoading(true);
@@ -243,7 +342,7 @@ const handleDeleteResume = async () => {
   };
 
   return (
-    <div style={{ background: '#f5f7fa', minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
+    <div className="profile-container">
       <AlumniTopBar 
         showProfile={showProfile} 
         setShowProfile={setShowProfile} 
@@ -251,275 +350,178 @@ const handleDeleteResume = async () => {
       />
 
       {/* Main Content */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 24, padding: '24px' }}>
+      <div className="profile-main-content">
         {/* Left Sidebar */}
-        <div style={{ flex: 1, maxWidth: 280 }}>
+        <div className="profile-left-sidebar">
           {/* Introduction */} 
-          <div style={{ 
-            background: 'white', 
-            borderRadius: 12, 
-            padding: 20, 
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-            border: '1px solid #e0e0e0',
-            marginBottom: 16
-          }}>
-            <div style={{ fontWeight: 'bold', marginBottom: 16, fontSize: 16 }}>Introduction</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="profile-card">
+            <div className="profile-intro-title">Introduction</div>
+            <div className="profile-bio-container">
              {/* Show bio if exists, otherwise show Add Bio button */}
           {user?.profile_bio?.trim() ? (
-            <div style={{
-              background: '#f5f7fa',
-              borderRadius: 8,
-              padding: '10px 12px',
-              fontSize: 14,
-              color: '#333',
-              marginBottom: 8,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
+            <div className="profile-bio-text">
               <span>{user.profile_bio}</span>
-              <button
-                style={{
-                  marginLeft: 8,
-                  background: '#eee',
-                  border: 'none',
-                  borderRadius: 6,
-                  padding: '4px 10px',
-                  cursor: 'pointer',
-                  fontSize: 12
-                }}
-                onClick={() => {
-                  setBioInput(user.profile_bio?.trim() || '');
-                  setBioModalOpen(true);
-                }}
-              >
-                Edit Bio
-              </button>
+              {isOwnProfile ? (
+                <button
+                  className="profile-bio-edit-btn"
+                  onClick={() => {
+                    setBioInput(user.profile_bio?.trim() || '');
+                    setBioModalOpen(true);
+                  }}
+                >
+                  Edit Bio
+                </button>
+              ) : null}
             </div>
           ) : (
-            <button
-              style={{
-                background: 'white',
-                border: '1px solid #e0e0e0',
-                borderRadius: 8,
-                padding: '8px 16px',
-                cursor: 'pointer',
-                fontSize: 14,
-                marginBottom: 8
-              }}
-              onClick={() => setBioModalOpen(true)}
-            >
-              Add Bio
-            </button>
+            isOwnProfile ? (
+              <button
+                className="profile-add-bio-btn"
+                onClick={() => setBioModalOpen(true)}
+              >
+                Add Bio
+              </button>
+            ) : null
           )}
 
 {user?.profile_resume ? (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+  <div className="profile-resume-wrapper">
     <a 
       href={`http://127.0.0.1:8000${user.profile_resume}`} 
       target="_blank" 
       rel="noopener noreferrer"
-      style={{ fontSize: 14, color: '#174f84' }}
+      className="profile-resume-link"
     >
       View Resume
     </a>
-    <button
-      onClick={handleDeleteResume}
-      style={{
-        background: '#e74c3c',
-        color: 'white',
-        border: 'none',
-        borderRadius: 6,
-        padding: '6px 12px',
-        fontSize: 14,
-        cursor: 'pointer'
-      }}
-    >
-      Delete Resume
-    </button>
+    {isOwnProfile ? (
+      <button
+        onClick={handleDeleteResume}
+        className="profile-resume-delete-btn"
+      >
+        Delete Resume
+      </button>
+    ) : null}
   </div>
 ) : (
-  <>
-    <input type="file" accept="application/pdf" onChange={handleResumeChange} />
-    <button
-      onClick={handleSaveResume}
-      style={{
-        background: '#174f84',
-        color: 'white',
-        border: 'none',
-        borderRadius: 6,
-        padding: '6px 12px',
-        fontSize: 14,
-        cursor: 'pointer'
-      }}
-    >
-      Upload Resume
-    </button>
-  </>
+  isOwnProfile ? (
+    <>
+      <input type="file" accept="application/pdf" onChange={handleResumeChange} />
+      <button
+        onClick={handleSaveResume}
+        className="profile-resume-upload-btn"
+      >
+        Upload Resume
+      </button>
+    </>
+  ) : null
 )}
 
             </div>
           </div>
 
           {/* Followers */}
-          <div style={{ 
-            background: 'white', 
-            borderRadius: 12, 
-            padding: 20, 
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-            border: '1px solid #e0e0e0'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div style={{ fontWeight: 'bold', fontSize: 16 }}>Followers</div>
-              <div style={{ color: '#174f84', fontSize: 12, cursor: 'pointer' }}>See all</div>
+          <div className="profile-followers-card">
+            <div className="profile-followers-header">
+              <div className="profile-followers-title">Followers</div>
+              <div className="profile-followers-seeall">See all</div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* First Row */}
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[1, 2, 3].map((f) => (
-                  <div key={f} style={{ textAlign: 'center', flex: 1 }}>
-                    <img
-                      src={`https://randomuser.me/api/portraits/men/${f * 5}.jpg`}
-                      alt="Follower"
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: '50%',
-                        objectFit: 'cover',
-                        marginBottom: 4
-                      }}
-                    />
-                    <div style={{ fontSize: 12, color: '#666' }}>lorem</div>
-                  </div>
-                ))}
-              </div>
-              {/* Second Row */}
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[4, 5, 6].map((f) => (
-                  <div key={f} style={{ textAlign: 'center', flex: 1 }}>
-                    <img
-                      src={`https://randomuser.me/api/portraits/women/${f * 4}.jpg`}
-                      alt="Follower"
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: '50%',
-                        objectFit: 'cover',
-                        marginBottom: 4
-                      }}
-                    />
-                    <div style={{ fontSize: 12, color: '#666' }}>lorem</div>
-                  </div>
-                ))}
-              </div>
+            <div className="profile-followers-list">
+              {followers.length === 0 ? (
+                <div>No followers yet.</div>
+              ) : (
+                <>
+                  {/* Render followers in rows of 3 */}
+                  {Array.from({ length: Math.ceil(followers.length / 3) }).map((_, rowIndex) => (
+                    <div key={rowIndex} className="profile-followers-row">
+                      {followers.slice(rowIndex * 3, rowIndex * 3 + 3).map((follower) => (
+                        <div key={follower.id} className="profile-follower-item">
+                          <img
+                            src={follower.profile_pic ? `http://127.0.0.1:8000${follower.profile_pic}` : 'https://randomuser.me/api/portraits/lego/1.jpg'}
+                            alt={follower.name}
+                            className="profile-follower-img"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.onerror = null;
+                              target.src = 'https://randomuser.me/api/portraits/lego/1.jpg';
+                            }}
+                          />
+                          <div className="profile-follower-name">{follower.name}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           </div>
 
         </div>
 
         {/* Center Content */}
-        <div style={{ flex: 2 }}>
+        <div className="profile-center-content">
           {/* Orange Banner */}
-          <div style={{ 
-            background: '#ff6b35', 
-            height: 160, 
-            width: '100%',
-            borderRadius: 12,
-            position: 'relative',
-            marginBottom: 60
-          }}>
-            {/* Edit Profile Button */}
-            <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'white', cursor: 'pointer', background: 'rgba(0,0,0,0.2)', padding: '6px 12px', borderRadius: 6 }} onClick={handleEditProfile}>
+          <div className="profile-orange-banner">
+          {isOwnProfile && (
+            <div className="profile-edit-profile-button" onClick={handleEditProfile}>
               <span>Edit Profile</span>
               <span>✏️</span>
             </div>
-          </div>
-
+          )}
+        </div>
           {/* Profile Info Section */}
-          <div style={{ 
-            position: 'relative',
-            marginTop: -80,
-            marginBottom: 24
-          }}>
-            <div style={{ 
-              background: 'white', 
-              borderRadius: 12, 
-              padding: '60px 20px 20px 20px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-              border: '1px solid #e0e0e0',
-              textAlign: 'center'
-            }}>
+          <div className="profile-info-section">
+            <div className="profile-info-card">
               <img 
                 src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo}
                 alt="Profile" 
-                style={{ 
-                  width: 80, 
-                  height: 80, 
-                  borderRadius: '50%', 
-                  border: '3px solid white',
-                  marginBottom: 12,
-                  marginTop: -60
-                }} 
+                className="profile-image"
               />
-              <div style={{ fontWeight: 'bold', fontSize: 18, color: '#333', marginBottom: 4, textTransform: 'uppercase' }}>
+              <div className="profile-name">
                 {user?.name || 'namee'}
               </div>
-              <div style={{ fontSize: 14, color: '#666' }}>
+              <div className="profile-university">
                 {user?.university || 'wowow'}
+              </div>
+              <div className="profile-other-actions-below-university">
+                <button className="profile-follow-button">Follow</button>
+                <button className="profile-message-button">Message</button>
               </div>
             </div>
           </div>
 
           {/* Start a Post */}
-          <div style={{ 
-            background: 'white', 
-            borderRadius: 12, 
-            padding: 20, 
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-            border: '1px solid #e0e0e0',
-            marginBottom: 16
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <img 
-                src={user?.profile_pic || ctulogo} 
-                alt="Profile" 
-                style={{ width: 40, height: 40, borderRadius: '50%' }} 
-              />
-              <input 
-                type="text" 
-                placeholder="Start a post" 
-                style={{ 
-                  flex: 1, 
-                  borderRadius: 20, 
-                  border: '1px solid #e0e0e0', 
-                  padding: '10px 16px',
-                  fontSize: 14
-                }} 
-              />
+          {isOwnProfile && (
+            <div className="profile-start-post-card">
+              <div className="profile-start-post-input-container">
+                <img 
+                  src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo}
+                  alt="Profile" 
+                  className="profile-start-post-profile-image"
+                />
+                <input 
+                  type="text" 
+                  placeholder="Start a post" 
+                  className="profile-start-post-input"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Social Media Post */}
-          <div style={{ 
-            background: 'white', 
-            borderRadius: 12, 
-            padding: 20, 
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-            border: '1px solid #e0e0e0'
-          }}>
+          <div className="profile-social-post-card">
             {/* Post Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <div className="profile-post-header">
               <img 
                 src={user?.profile_pic || ctulogo} 
                 alt="Profile" 
-                style={{ width: 40, height: 40, borderRadius: '50%' }} 
+                className="profile-post-profile-image"
               />
               <div>
-                <div style={{ fontWeight: 'bold', fontSize: 14, color: '#333', textTransform: 'uppercase' }}>
-                  {user?.name || 'LYKA BAUTISTA'}
+                <div className="profile-post-user-name">
+                  {user?.name || 'ok'}
                 </div>
-                <div style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div className="profile-post-meta">
                   <span>3,000,000 Followers</span>
                   <span>•</span>
                   <span>2 d</span>
@@ -529,19 +531,19 @@ const handleDeleteResume = async () => {
             </div>
 
             {/* Post Content */}
-            <div style={{ fontSize: 14, color: '#333', marginBottom: 16, lineHeight: 1.5 }}>
+            <div className="profile-post-content">
               Lorem ipsum dolor sit amet. Quo asperiores enim ut veniam repudiandae eum quisquam voluptatem non dolore veritatis eos quia suscipit sed facere alias nam voluptate quia. Ut neque ipsam sed explicabo nemo ut sapiente consectetur qui omnis ducimus qui voluptatem iusto? Id enim quia quo quam consequatur sit nulla delectus aut accusamus velit est animi sint eos consequatur nemo sit facilis ipsam. Est dolores tenetur in dignissimos velit At rerum minus qui velit autern qui officia sint!
             </div>
 
             {/* Post Actions */}
-            <div style={{ display: 'flex', gap: 24, fontSize: 13, color: '#666' }}>
-              <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div className="profile-post-actions">
+              <span className="profile-post-action-item">
                 ❤️ Like
               </span>
-              <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span className="profile-post-action-item">
                 💬 Comment
               </span>
-              <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span className="profile-post-action-item">
                 🔄 Repost
               </span>
             </div>
@@ -550,49 +552,20 @@ const handleDeleteResume = async () => {
 
         {/* Bio Modal */}
       {bioModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'white',
-            padding: 24,
-            borderRadius: 12,
-            width: 400,
-            maxWidth: '90%',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-            position: 'relative'
-          }}>
-            <h3 style={{ marginBottom: 12 }}>Add Bio</h3>
+        <div className="profile-bio-modal-overlay">
+          <div className="profile-bio-modal-content">
+            <h3 className="profile-bio-modal-title">Add Bio</h3>
             <textarea
               value={bioInput}
               onChange={e => setBioInput(e.target.value)}
               rows={4}
-              style={{
-                width: '100%',
-                padding: 12,
-                fontSize: 14,
-                borderRadius: 8,
-                border: '1px solid #ccc',
-                marginBottom: 16
-              }}
+              className="profile-bio-textarea"
               placeholder="Enter your bio..."
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+            <div className="profile-bio-modal-buttons">
             <button
               onClick={() => setBioModalOpen(false)}
-              style={{
-                padding: '8px 16px',
-                border: 'none',
-                background: '#ccc',
-                borderRadius: 6,
-                cursor: 'pointer'
-              }}
+              className="profile-bio-cancel-btn"
               disabled={bioLoading}
             >
               Cancel
@@ -600,14 +573,7 @@ const handleDeleteResume = async () => {
             {user?.profile_bio?.trim() && (
               <button
                 onClick={handleDeleteBio}
-                style={{
-                  padding: '8px 16px',
-                  border: 'none',
-                  background: '#e74c3c',
-                  color: 'white',
-                  borderRadius: 6,
-                  cursor: 'pointer'
-                }}
+                className="profile-bio-delete-btn"
                 disabled={bioLoading}
               >
                 {bioLoading ? 'Deleting...' : 'Delete Bio'}
@@ -615,14 +581,7 @@ const handleDeleteResume = async () => {
             )}
             <button
               onClick={handleSaveBio}
-              style={{
-                padding: '8px 16px',
-                border: 'none',
-                background: '#174f84',
-                color: 'white',
-                borderRadius: 6,
-                cursor: 'pointer'
-              }}
+              className="profile-bio-save-btn"
               disabled={bioLoading}
             >
               {bioLoading ? 'Saving...' : 'Save'}
@@ -635,25 +594,24 @@ const handleDeleteResume = async () => {
 
       {/* Edit Profile Modal */}
       {editModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 16px rgba(0,0,0,0.18)', padding: 32, minWidth: 340, maxWidth: 480, width: '90%', position: 'relative' }}>
-            <button onClick={() => setEditModalOpen(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#888' }} title="Close">×</button>
-            <h2 style={{ marginBottom: 16 }}>Edit Profile</h2>
+        <div className="profile-edit-modal-overlay">
+          <div className="profile-edit-modal-content">
+            <button onClick={() => setEditModalOpen(false)} className="profile-edit-modal-close-btn" title="Close">×</button>
+            <h2 className="profile-edit-modal-title">Edit Profile</h2>
             {/* Profile Pic */}
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontWeight: 600 }}>Profile Picture</label><br />
-              <img src={editProfilePic || ctulogo} alt="Profile Preview" style={{ width: 80, height: 80, borderRadius: '50%', border: '2px solid #eee', margin: '8px 0' }} />
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <div className="profile-edit-pic-section" style={{ marginBottom: 16 }}>
+              <label className="profile-edit-pic-label">Profile Picture</label><br />
+              <img src={editProfilePic || ctulogo} alt="Profile Preview" className="profile-edit-pic-preview" />
+              <div className="profile-edit-pic-controls">
                 <input type="file" accept="image/*" onChange={handleProfilePicChange} />
-                <button onClick={handleRemoveProfilePic} style={{ background: '#eee', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>Remove</button>
+                <button onClick={handleRemoveProfilePic} className="profile-edit-pic-remove-btn">Remove</button>
               </div>
             </div>
             
-            
-            {/* Resume (PDF) - Feature coming soon */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button onClick={() => setEditModalOpen(false)} style={{ background: '#eee', border: 'none', borderRadius: 6, padding: '8px 20px', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleSave} style={{ background: '#174f84', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', cursor: 'pointer' }}>Save</button>
+            {/* Resume (PDF) - Feature coming soon */} 
+            <div className="profile-edit-modal-buttons">
+              <button onClick={() => setEditModalOpen(false)} className="profile-edit-modal-cancel-btn">Cancel</button>
+              <button onClick={handleSave} className="profile-edit-modal-save-btn">Save</button>
             </div>
           </div>
         </div>
