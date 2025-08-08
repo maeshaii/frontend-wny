@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchNotifications } from '../../services/api';
+import { fetchNotifications, followUser, unfollowUser, checkFollowStatus } from '../../services/api';
 import AlumniTopBar from './AlumniTopBar';
 import ctulogo from '../../images/ctulogo.png';
 import './dashboard.css';
@@ -31,6 +31,8 @@ interface SuggestedUser {
   id: number;
   name: string;
   profile_pic: string;
+  batch?: string | number;
+  isFollowing?: boolean;
 }
 
 const AlumniDashboard: React.FC = () => {
@@ -38,6 +40,7 @@ const AlumniDashboard: React.FC = () => {
   const [showProfile, setShowProfile] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
+  const [followLoading, setFollowLoading] = useState<{ [key: number]: boolean }>({});
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -47,6 +50,46 @@ const AlumniDashboard: React.FC = () => {
     navigate('/login');
   };
 
+  const handleFollow = async (userId: number) => {
+    setFollowLoading(prev => ({ ...prev, [userId]: true }));
+    try {
+      const result = await followUser(userId);
+      if (result.success) {
+        setSuggestedUsers(prev => 
+          prev.map(user => 
+            user.id === userId 
+              ? { ...user, isFollowing: true }
+              : user
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error following user:', error);
+    } finally {
+      setFollowLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleUnfollow = async (userId: number) => {
+    setFollowLoading(prev => ({ ...prev, [userId]: true }));
+    try {
+      const result = await unfollowUser(userId);
+      if (result.success) {
+        setSuggestedUsers(prev => 
+          prev.map(user => 
+            user.id === userId 
+              ? { ...user, isFollowing: false }
+              : user
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+    } finally {
+      setFollowLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
@@ -54,11 +97,29 @@ const AlumniDashboard: React.FC = () => {
       setUser(userObj);
 
       // Fetch users for "People you may know" excluding admin and current user
-      fetch(`/api/users_list_view?current_user_id=${userObj.id}`)
+      fetch(`http://127.0.0.1:8000/api/users_list_view/?current_user_id=${userObj.id}`)
         .then((res) => res.json())
-        .then((data) => {
+        .then(async (data) => {
           if (data.success) {
-            setSuggestedUsers(data.users);
+            const usersWithFollowStatus = await Promise.all(
+              data.users.map(async (user: any) => {
+                try {
+                  const followStatus = await checkFollowStatus(user.id);
+                  return {
+                    ...user,
+                    isFollowing: followStatus.is_following
+                  };
+                } catch (error) {
+                  console.error('Error checking follow status:', error);
+                  // If there's an authentication error, default to not following
+                  return {
+                    ...user,
+                    isFollowing: false
+                  };
+                }
+              })
+            );
+            setSuggestedUsers(usersWithFollowStatus);
           }
         })
         .catch((error) => {
@@ -166,16 +227,6 @@ const AlumniDashboard: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* Forum Link */}
-          <div className="forum-link">
-            {/* Orange Header Bar */}
-            <div className="forum-link-orange-header"></div>
-            
-            {/* Content */}
-            <div className="forum-link-icon">W</div>
-            <div className="forum-link-text">FORUM</div>
-          </div>
         </div>
 
         {/* Center Content */}
@@ -248,19 +299,37 @@ const AlumniDashboard: React.FC = () => {
           <div className="people-you-may-know-card">
             <div className="people-you-may-know-title">People you may know</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {suggestedUsers.map((user) => (
-                <div key={user.id} className="suggested-user-item">
-                  <img
-                    src={user.profile_pic}
-                    alt={user.name}
-                    className="suggested-user-profile-image"
-                  />
-                  <div className="suggested-user-name">{user.name}</div>
-                  <button className="suggested-user-follow-button">
-                    Follow
-                  </button>
-                </div>
-              ))}
+              {suggestedUsers.length > 0 ? (
+                suggestedUsers.map((user) => (
+                  <div 
+                    key={user.id} 
+                    className="suggested-user-item"
+                    onClick={() => navigate(`/alumni/profile/${user.id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <img
+                      src={user.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo}
+                      alt={user.name}
+                      className="suggested-user-profile-image"
+                    />
+                    <div className="suggested-user-name">
+                      {user.name} {user.batch ? `(${user.batch})` : ''}
+                    </div>
+                    <button 
+                      className={`suggested-user-follow-button ${user.isFollowing ? 'following' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent navigation when clicking follow button
+                        user.isFollowing ? handleUnfollow(user.id) : handleFollow(user.id);
+                      }}
+                      disabled={followLoading[user.id]}
+                    >
+                      {followLoading[user.id] ? '...' : user.isFollowing ? 'Unfollow' : 'Follow'}
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div>No users to display</div>
+              )}
             </div>
           </div>
         </div>
