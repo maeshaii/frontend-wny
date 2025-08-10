@@ -253,8 +253,8 @@ const AlumniDashboard: React.FC = () => {
               {/* Post Header */}
               <div className="post-header">
                 <div className="post-header-left">
-                  <img 
-                    src={post.author.profile_pic || ctulogo} 
+                   <img 
+                    src={post.author.profile_pic ? (post.author.profile_pic.startsWith('http') ? post.author.profile_pic : `http://127.0.0.1:8000${post.author.profile_pic}`) : ctulogo} 
                     alt="Profile" 
                     className="post-header-profile-image"
                   />

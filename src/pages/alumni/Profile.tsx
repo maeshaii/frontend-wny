@@ -68,10 +68,11 @@ const AlumniProfile: React.FC = () => {
           if (userId === (JSON.parse(localStorage.getItem('user') || '{}').user_id || JSON.parse(localStorage.getItem('user') || '{}').id)) {
             localStorage.setItem('user', JSON.stringify(profile.alumni));
           }
-          // Fetch followers for this user, ensure userId is number
+          // Determine numeric user id being viewed
           const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
-          if (numericUserId !== undefined && numericUserId !== null && !isNaN(numericUserId)) {
-            fetchFollowers(numericUserId)
+          if (numericUserId !== undefined && numericUserId !== null && !isNaN(Number(numericUserId))) {
+            // Followers list for the viewed profile
+            fetchFollowers(Number(numericUserId))
               .then(data => {
                 if (data.success && data.followers) {
                   setFollowers(data.followers);
@@ -80,13 +81,19 @@ const AlumniProfile: React.FC = () => {
                 }
               })
               .catch(() => setFollowers([]));
-            
-            // Check if current user is following this user (only if viewing someone else's profile)
-            if (!isOwnProfile) {
-              checkFollowStatus(numericUserId)
+
+            // Decide own vs other profile by comparing with logged-in user id
+            const currentUserObj = JSON.parse(localStorage.getItem('user') || '{}');
+            const currentId = currentUserObj.user_id || currentUserObj.id;
+            const viewingOwn = Number(numericUserId) === Number(currentId);
+            setIsOwnProfile(viewingOwn);
+
+            // Fetch follow status only if viewing someone else's profile
+            if (!viewingOwn) {
+              checkFollowStatus(Number(numericUserId))
                 .then(data => {
                   if (data.success) {
-                    setIsFollowing(data.is_following);
+                    setIsFollowing(!!data.is_following);
                   }
                 })
                 .catch(error => {
@@ -504,13 +511,13 @@ const handleSave = async () => {
                           style={{ cursor: 'pointer' }}
                         >
                           <img
-                            src={follower.profile_pic ? `http://127.0.0.1:8000${follower.profile_pic}` : 'https://randomuser.me/api/portraits/lego/1.jpg'}
+                            src={follower.profile_pic ? `http://127.0.0.1:8000${follower.profile_pic}` : ctulogo}
                             alt={follower.name}
                             className="profile-follower-img"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.onerror = null;
-                              target.src = 'https://randomuser.me/api/portraits/lego/1.jpg';
+                              target.src = ctulogo as unknown as string;
                             }}
                           />
                           <div className="profile-follower-name">{follower.name}</div>
@@ -588,9 +595,14 @@ const handleSave = async () => {
             {/* Post Header */}
             <div className="profile-post-header">
               <img 
-                src={user?.profile_pic || ctulogo} 
+                src={user?.profile_pic ? (user.profile_pic.startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo} 
                 alt="Profile" 
                 className="profile-post-profile-image"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null;
+                  target.src = ctulogo as unknown as string;
+                }}
               />
               <div>
                 <div className="profile-post-user-name">
