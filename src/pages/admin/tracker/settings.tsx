@@ -323,9 +323,14 @@ const Settings: React.FC = () => {
                       <td>
                         <div className="user-info">
                           <img
-                            src={user.profile_pic || ctulogo}
+                            src={user.profile_pic ? (user.profile_pic.startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo}
                             alt="avatar"
                             style={{ width: 32, height: 32, borderRadius: '50%' }}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.onerror = null;
+                              target.src = ctulogo as unknown as string;
+                            }}
                           />
                           <div>
                             <strong>{user.name && typeof user.name === 'object' ? JSON.stringify(user.name) : user.name || ''}</strong><br />
@@ -459,9 +464,14 @@ const Settings: React.FC = () => {
                       <td>
                         <div className="user-info">
                           <img
-                            src={user.profile_pic || ctulogo}
+                            src={user.profile_pic ? (user.profile_pic.startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo}
                             alt="avatar"
                             style={{ width: 32, height: 32, borderRadius: '50%' }}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.onerror = null;
+                              target.src = ctulogo as unknown as string;
+                            }}
                           />
                           <div>
                             <strong>{user.name && typeof user.name === 'object' ? JSON.stringify(user.name) : user.name || ''}</strong><br />

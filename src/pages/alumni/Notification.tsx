@@ -140,7 +140,9 @@ const NotificationPage: React.FC = () => {
                 <tr
                   key={notif.id}
                   style={{ borderBottom: '1px solid #eee', background: selected.includes(notif.id) ? '#e0e7ef' : undefined, cursor: 'pointer' }}
-                  onClick={() => setOpenNotif(notif)}
+                  onClick={() => {
+                    setOpenNotif(notif);
+                  }}
                 >
                   <td>
                     <input
@@ -218,7 +220,42 @@ const NotificationPage: React.FC = () => {
             <div style={{ color: '#174f84', fontWeight: 600, marginBottom: 4 }}>{openNotif.type}</div>
             <div style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>{openNotif.date}</div>
             <div style={{ fontSize: 16, whiteSpace: 'pre-line', marginBottom: 24 }}>
-              {renderMessageWithButton(openNotif.content)}
+              {openNotif.type && openNotif.type.toLowerCase() === 'follow' ? (
+                <div>
+                  {openNotif.content.split('View profile:').map((part: string, index: number) => {
+                    if (index === 0) {
+                      return <span key={index}>{part}</span>;
+                    } else {
+                      const match = part.match(/\/alumni\/profile\/(\d+)/);
+                      if (match) {
+                        const followerId = match[1];
+                        return (
+                          <span key={index}>
+                            View profile:{' '}
+                            <span
+                              onClick={() => {
+                                navigate(`/alumni/profile/${followerId}`);
+                                setOpenNotif(null);
+                              }}
+                              style={{
+                                color: '#1e4c7a',
+                                textDecoration: 'underline',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                              }}
+                            >
+                              {part.trim()}
+                            </span>
+                          </span>
+                        );
+                      }
+                      return <span key={index}>View profile:{part}</span>;
+                    }
+                  })}
+                </div>
+              ) : (
+                renderMessageWithButton(openNotif.content)
+              )}
             </div>
           </div>
         </div>

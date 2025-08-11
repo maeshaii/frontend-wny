@@ -11,6 +11,65 @@ export const fetchFollowers = async (userId: number) => {
   return response.data;
 };
 
+// Follow a user
+export const followUser = async (userId: number) => {
+  const token = localStorage.getItem('accessToken');
+  console.log('Follow API - Token:', token ? 'Present' : 'Missing');
+  console.log('Follow API - User ID:', userId);
+  
+  try {
+    const response = await api.post(`follow/${userId}/`, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    console.log('Follow API - Response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Follow API - Error:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Unfollow a user
+export const unfollowUser = async (userId: number) => {
+  const token = localStorage.getItem('accessToken');
+  console.log('Unfollow API - Token:', token ? 'Present' : 'Missing');
+  console.log('Unfollow API - User ID:', userId);
+  
+  try {
+    const response = await api.delete(`follow/${userId}/`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    console.log('Unfollow API - Response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Unfollow API - Error:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Check if current user is following a user
+export const checkFollowStatus = async (userId: number) => {
+  const token = localStorage.getItem('accessToken');
+  console.log('Check Follow Status API - Token:', token ? 'Present' : 'Missing');
+  console.log('Check Follow Status API - User ID:', userId);
+  
+  try {
+    const response = await api.get(`follow/${userId}/status/`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    console.log('Check Follow Status API - Response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Check Follow Status API - Error:', error.response?.data || error.message);
+    throw error;
+  }
+};
 
 // Login API function (JWT, for all account types)
 export const loginUser = async (acc_username: string, acc_password: string) => {

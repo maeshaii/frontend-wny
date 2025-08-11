@@ -361,6 +361,18 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
     if (text.includes('facebook') || text.includes('twitter') || text.includes('instagram') || text.includes('linkedin') || text.includes('social')) {
       return { type: 'url', placeholder: 'https://socialmedia.com/yourprofile', validate: (v: string) => /^https?:\/\//.test(v) ? '' : 'Invalid URL.' };
     }
+    // Add numerical validation for age, salary, income, and other numerical fields
+    if (text.includes('age') || text.includes('salary') || text.includes('income') || text.includes('amount') || text.includes('number') || text.includes('monthly') || text.includes('annual') || text.includes('yearly')) {
+      return { 
+        type: 'number', 
+        placeholder: 'Enter numbers only', 
+        validate: (v: string) => {
+          if (!v) return ''; // Allow empty for optional fields
+          if (/^\d+$/.test(v)) return ''; // Only digits allowed
+          return 'This field only accepts numbers (0-9)';
+        }
+      };
+    }
     return { type: 'text', placeholder: '', validate: (_: string) => '' };
   };
 
@@ -556,7 +568,15 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
                         <Autocomplete
                           options={jobList}
                           getOptionLabel={option => typeof option === 'string' ? option : option.title}
-                          filterOptions={(options) => options}
+                          filterOptions={(options, { inputValue }) => {
+                            if (!inputValue) return options.slice(0, 50); // Show first 50 if no input
+                            const searchTerm = inputValue.toLowerCase();
+                            return options
+                              .filter(option => 
+                                option.title.toLowerCase().includes(searchTerm)
+                              )
+                              .slice(0, 100); // Limit results for performance
+                          }}
                           ListboxProps={{ style: { maxHeight: 400 } }}
                           freeSolo={true} // Allow free text entry
                           onChange={(_, value) => {
@@ -592,10 +612,21 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
                               readOnly={isReadOnlyField(q)}
                               placeholder={inputProps.placeholder}
                               pattern={inputProps.pattern}
+                              onKeyPress={e => {
+                                // Prevent non-numerical input for number fields
+                                if (inputProps.type === 'number' && !/[\d]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'Enter' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                                  e.preventDefault();
+                                }
+                              }}
                               onChange={e => {
-                                handleResponseChange(cat.id, q.id, e.target.value);
+                                // For number fields, filter out non-numerical characters
+                                let value = e.target.value;
+                                if (inputProps.type === 'number') {
+                                  value = value.replace(/[^\d]/g, '');
+                                }
+                                handleResponseChange(cat.id, q.id, value);
                                 // Validate on change
-                                const err = inputProps.validate(e.target.value);
+                                const err = inputProps.validate(value);
                                 setValidationErrors(prev => ({ ...prev, [`${q.id}`]: err }));
                               }}
                               style={{ width: '100%', marginTop: 4 }}

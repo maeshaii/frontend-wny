@@ -15,7 +15,7 @@ const Tracker: React.FC = () => {
     <div style={{ display: 'flex'}}>
       <Sidebar />
 
-      <div className="tracker-container" style={{ flex: 1, padding: '20px' }}>
+      <div className="tracker-container" style={{ flex: 1, padding: '20px', marginLeft: 220, height: '100vh', overflowY: 'auto' }}>
         <div className="tracker-inner">
 
           {/* Header */}

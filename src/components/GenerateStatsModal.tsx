@@ -35,6 +35,13 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
   const [detailedLoading, setDetailedLoading] = useState<Record<string, boolean>>({});
   const [currentChartSection, setCurrentChartSection] = useState<string>('');
   
+  // Safe percent helper to avoid NaN when total is 0
+  const pct = (part: number, total: number) => {
+    const p = Number(part) || 0;
+    const t = Number(total) || 0;
+    return t > 0 ? `${((p / t) * 100).toFixed(2)}%` : '0.00%';
+  };
+
   // Refs for chart containers
   const barChartRef = useRef<HTMLDivElement>(null);
   const pieChartRef = useRef<HTMLDivElement>(null);
@@ -409,14 +416,14 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Employed Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.employed_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${((stats.employed_count / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.employed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Unemployed Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.unemployed_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${((stats.unemployed_count / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.unemployed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Unemployment Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${((stats.unemployed_count / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.unemployed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Employment Success Rate';
             worksheet.getCell(`B${rowIdx}`).value = `${stats.employment_rate}%`;
@@ -428,22 +435,22 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Pursuing Further Study';
             worksheet.getCell(`B${rowIdx}`).value = stats.pursuing_further_study;
-            worksheet.getCell(`C${rowIdx}`).value = `${stats.further_study_rate}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.pursuing_further_study, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Post Graduate Degree Holders';
             worksheet.getCell(`B${rowIdx}`).value = stats.post_graduate_degree;
-            worksheet.getCell(`C${rowIdx}`).value = `${((stats.post_graduate_degree / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.post_graduate_degree, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Further Study Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${stats.further_study_rate}%`;
-            worksheet.getCell(`C${rowIdx}`).value = `${stats.further_study_rate}%`;
+            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.further_study_rate, stats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.further_study_rate, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Not Pursuing Further Study';
             worksheet.getCell(`B${rowIdx}`).value = stats.total_alumni - stats.pursuing_further_study;
-            worksheet.getCell(`C${rowIdx}`).value = `${((stats.total_alumni - stats.pursuing_further_study) / stats.total_alumni * 100).toFixed(2)}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.total_alumni - stats.pursuing_further_study, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Academic Advancement Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${stats.further_study_rate}%`;
+            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.further_study_rate, stats.total_alumni)}`;
             rowIdx++;
           } else if (stats?.type === 'SUC') {
             worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -452,14 +459,14 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'High Position Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.high_position_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${((stats.high_position_count / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Other Positions';
             worksheet.getCell(`B${rowIdx}`).value = stats.total_alumni - stats.high_position_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${((stats.total_alumni - stats.high_position_count) / stats.total_alumni * 100).toFixed(2)}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.total_alumni - stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Leadership Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${((stats.high_position_count / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
           } else if (stats?.type === 'AACUP') {
             worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -468,28 +475,28 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Employed Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.employed_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${((stats.employed_count / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.employed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Absorbed Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.absorbed_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${((stats.absorbed_count / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.absorbed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'High Position Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.high_position_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${((stats.high_position_count / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Others';
             worksheet.getCell(`B${rowIdx}`).value = stats.total_alumni - stats.employed_count - stats.absorbed_count - stats.high_position_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${((stats.total_alumni - stats.employed_count - stats.absorbed_count - stats.high_position_count) / stats.total_alumni * 100).toFixed(2)}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.total_alumni - stats.employed_count - stats.absorbed_count - stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Employment Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${((stats.employed_count / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.employed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Absorption Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${((stats.absorbed_count / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.absorbed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Leadership Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${((stats.high_position_count / stats.total_alumni) * 100).toFixed(2)}%`;
+            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
           } else {
             worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -499,7 +506,7 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             Object.entries(stats.status_counts || {}).forEach(([status, count]) => {
               worksheet.getCell(`A${rowIdx}`).value = status;
               worksheet.getCell(`B${rowIdx}`).value = count as number;
-              worksheet.getCell(`C${rowIdx}`).value = `${((count as number) / stats.total_alumni * 100).toFixed(2)}%`;
+              worksheet.getCell(`C${rowIdx}`).value = `${pct(count as number, stats.total_alumni)}`;
               rowIdx++;
             });
           }
@@ -586,22 +593,22 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           worksheet.getCell(`C${rowIdx}`).value = '100%';
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Employment Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${generatedStats.employment_rate}%`;
-          worksheet.getCell(`C${rowIdx}`).value = `${generatedStats.employment_rate}%`;
+          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Employed Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.employed_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${((generatedStats.employed_count / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Unemployed Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.unemployed_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${((generatedStats.unemployed_count / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.unemployed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Unemployment Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${((generatedStats.unemployed_count / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.unemployed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Employment Success Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${generatedStats.employment_rate}%`;
+          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
           rowIdx++;
         } else if (generatedStats?.type === 'CHED') {
           worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -610,22 +617,22 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Pursuing Further Study';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.pursuing_further_study;
-          worksheet.getCell(`C${rowIdx}`).value = `${generatedStats.further_study_rate}%`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.pursuing_further_study, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Post Graduate Degree Holders';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.post_graduate_degree;
-          worksheet.getCell(`C${rowIdx}`).value = `${((generatedStats.post_graduate_degree / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.post_graduate_degree, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Further Study Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${generatedStats.further_study_rate}%`;
-          worksheet.getCell(`C${rowIdx}`).value = `${generatedStats.further_study_rate}%`;
+          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.further_study_rate, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.further_study_rate, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Not Pursuing Further Study';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.total_alumni - generatedStats.pursuing_further_study;
-          worksheet.getCell(`C${rowIdx}`).value = `${((generatedStats.total_alumni - generatedStats.pursuing_further_study) / generatedStats.total_alumni * 100).toFixed(2)}%`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.total_alumni - generatedStats.pursuing_further_study, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Academic Advancement Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${generatedStats.further_study_rate}%`;
+          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.further_study_rate, generatedStats.total_alumni)}`;
           rowIdx++;
         } else if (generatedStats?.type === 'SUC') {
           worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -634,14 +641,14 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'High Position Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.high_position_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${((generatedStats.high_position_count / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Other Positions';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.total_alumni - generatedStats.high_position_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${((generatedStats.total_alumni - generatedStats.high_position_count) / generatedStats.total_alumni * 100).toFixed(2)}%`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.total_alumni - generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Leadership Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${((generatedStats.high_position_count / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
         } else if (generatedStats?.type === 'AACUP') {
           worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -650,28 +657,28 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Employed Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.employed_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${((generatedStats.employed_count / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Absorbed Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.absorbed_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${((generatedStats.absorbed_count / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.absorbed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'High Position Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.high_position_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${((generatedStats.high_position_count / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Others';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.total_alumni - generatedStats.employed_count - generatedStats.absorbed_count - generatedStats.high_position_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${((generatedStats.total_alumni - generatedStats.employed_count - generatedStats.absorbed_count - generatedStats.high_position_count) / generatedStats.total_alumni * 100).toFixed(2)}%`;
+          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.total_alumni - generatedStats.employed_count - generatedStats.absorbed_count - generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Employment Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${((generatedStats.employed_count / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Absorption Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${((generatedStats.absorbed_count / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.absorbed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Leadership Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${((generatedStats.high_position_count / generatedStats.total_alumni) * 100).toFixed(2)}%`;
+          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
         } else {
           worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -681,7 +688,7 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           Object.entries(generatedStats.status_counts || {}).forEach(([status, count]) => {
             worksheet.getCell(`A${rowIdx}`).value = status;
             worksheet.getCell(`B${rowIdx}`).value = count as number;
-            worksheet.getCell(`C${rowIdx}`).value = `${((count as number) / generatedStats.total_alumni * 100).toFixed(2)}%`;
+            worksheet.getCell(`C${rowIdx}`).value = `${pct(count as number, generatedStats.total_alumni)}`;
             rowIdx++;
           });
         }
@@ -835,40 +842,36 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             {/* Render summary rows based on type */}
             {type === 'QPRO' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
-                <tr><td style={td}>Employed</td><td style={td}>{stats.employed_count}</td><td style={td}>{((stats.employed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Unemployed</td><td style={td}>{stats.unemployed_count}</td><td style={td}>{((stats.unemployed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td></tr>
+                <tr><td style={td}>Employed</td><td style={td}>{stats.employed_count}</td><td style={td}>{pct(stats.employed_count, stats.total_alumni)}</td></tr>
+                <tr><td style={td}>Unemployed</td><td style={td}>{stats.unemployed_count}</td><td style={td}>{pct(stats.unemployed_count, stats.total_alumni)}</td></tr>
                 <tr><td style={td}>Employment Rate</td><td style={td}>{stats.employment_rate}%</td><td style={td}></td></tr>
               </>
             )}
             {type === 'CHED' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
-                <tr><td style={td}>Pursuing Further Study</td><td style={td}>{stats.pursuing_further_study}</td><td style={td}>{((stats.pursuing_further_study / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Post Graduate Degree</td><td style={td}>{stats.post_graduate_degree}</td><td style={td}>{((stats.post_graduate_degree / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td></tr>
+                <tr><td style={td}>Pursuing Further Study</td><td style={td}>{stats.pursuing_further_study}</td><td style={td}>{pct(stats.pursuing_further_study, stats.total_alumni)}</td></tr>
+                <tr><td style={td}>Post Graduate Degree</td><td style={td}>{stats.post_graduate_degree}</td><td style={td}>{pct(stats.post_graduate_degree, stats.total_alumni)}</td></tr>
                 <tr><td style={td}>Further Study Rate</td><td style={td}>{stats.further_study_rate}%</td><td style={td}></td></tr>
-                <tr key="ched-total-alumni"><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
-                <tr key="ched-pursuing-further-study"><td style={td}>Pursuing Further Study</td><td style={td}>{stats.pursuing_further_study}</td><td style={td}>{((stats.pursuing_further_study / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr key="ched-post-graduate-degree"><td style={td}>Post Graduate Degree</td><td style={td}>{stats.post_graduate_degree}</td><td style={td}>{((stats.post_graduate_degree / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr key="ched-job-alignment"><td style={td}>Job Alignment</td><td style={td}>{Number(stats.job_alignment_count) || 0}</td><td style={td}>{(stats.total_alumni ? ((Number(stats.job_alignment_count) || 0) / stats.total_alumni * 100).toFixed(2) : '0.00')}%</td></tr>
-                <tr key="ched-self-employed"><td style={td}>Self-Employed</td><td style={td}>{Number(stats.self_employed_count) || 0}</td><td style={td}>{(stats.total_alumni ? ((Number(stats.self_employed_count) || 0) / stats.total_alumni * 100).toFixed(2) : '0.00')}%</td></tr>
-                <tr key="ched-further-study-rate"><td style={td}>Further Study Rate</td><td style={td}>{stats.further_study_rate}%</td><td style={td}></td></tr>
+                <tr key="ched-job-alignment"><td style={td}>Job Alignment</td><td style={td}>{Number(stats.job_aligned_count) || 0}</td><td style={td}>{pct(Number(stats.job_aligned_count) || 0, stats.total_alumni)}</td></tr>
+                <tr key="ched-self-employed"><td style={td}>Self-Employed</td><td style={td}>{Number(stats.self_employed_count) || 0}</td><td style={td}>{pct(Number(stats.self_employed_count) || 0, stats.total_alumni)}</td></tr>
               </>
             )}
             {type === 'SUC' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
-                <tr><td style={td}>High Position</td><td style={td}>{stats.high_position_count}</td><td style={td}>{((stats.high_position_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Other Positions</td><td style={td}>{stats.total_alumni - stats.high_position_count}</td><td style={td}>{(((stats.total_alumni - stats.high_position_count) / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td></tr>
+                <tr><td style={td}>High Position</td><td style={td}>{stats.high_position_count}</td><td style={td}>{pct(stats.high_position_count, stats.total_alumni)}</td></tr>
+                <tr><td style={td}>Other Positions</td><td style={td}>{stats.total_alumni - stats.high_position_count}</td><td style={td}>{pct(stats.total_alumni - stats.high_position_count, stats.total_alumni)}</td></tr>
                 <tr><td style={td}>Average Salary</td><td style={td}>{stats.average_salary}</td><td style={td}></td></tr>
               </>
             )}
             {type === 'AACUP' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>100%</td></tr>
-                <tr><td style={td}>Employed</td><td style={td}>{stats.employed_count}</td><td style={td}>{((stats.employed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>Absorbed</td><td style={td}>{stats.absorbed_count}</td><td style={td}>{((stats.absorbed_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
-                <tr><td style={td}>High Position</td><td style={td}>{stats.high_position_count}</td><td style={td}>{((stats.high_position_count / stats.total_alumni) * 100).toFixed(2)}%</td></tr>
+                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td></tr>
+                <tr><td style={td}>Employed</td><td style={td}>{stats.employed_count}</td><td style={td}>{pct(stats.employed_count, stats.total_alumni)}</td></tr>
+                <tr><td style={td}>Absorbed</td><td style={td}>{stats.absorbed_count}</td><td style={td}>{pct(stats.absorbed_count, stats.total_alumni)}</td></tr>
+                <tr><td style={td}>High Position</td><td style={td}>{stats.high_position_count}</td><td style={td}>{pct(stats.high_position_count, stats.total_alumni)}</td></tr>
                 <tr><td style={td}>Employment Rate</td><td style={td}>{stats.employment_rate}%</td><td style={td}></td></tr>
                 <tr><td style={td}>Absorption Rate</td><td style={td}>{stats.absorption_rate}%</td><td style={td}></td></tr>
                 <tr><td style={td}>High Position Rate</td><td style={td}>{stats.high_position_rate}%</td><td style={td}></td></tr>

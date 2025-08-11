@@ -281,6 +281,13 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.suggested-user-item:hover {
+  background-color: #f5f7fa;
 }
 
 /* Suggested user profile image */
@@ -306,4 +313,24 @@
   padding: 6px 12px;
   font-size: 12px;
   cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.suggested-user-follow-button:hover {
+  background: #0d3a5f;
+}
+
+.suggested-user-follow-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.suggested-user-follow-button.following {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.suggested-user-follow-button.following:hover {
+  background: #d0d0d0;
 }

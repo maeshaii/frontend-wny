@@ -3,18 +3,25 @@ import { useNavigate, useParams } from 'react-router-dom';
 import AlumniTopBar from './AlumniTopBar';
 import ctulogo from '../../images/ctulogo.png';
 import './profile.css';
-import { fetchFollowers } from '../../services/api';  // Import fetchFollowers
+import { fetchFollowers, followUser, unfollowUser, checkFollowStatus } from '../../services/api';  // Import follow functions
 
 interface AlumniUser {
   name: string;
   course?: string; 
-  year_graduated?: string | number;
+  batch?: string | number;
   profile_pic?: string;
   profile_bio?: string;
   profile_resume?: string;
   location?: string;
   university?: string;
   resume?: string;
+  // Add fields that might come from backend
+  id?: number;
+  ctu_id?: string;
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  year_graduated?: string | number;
 }
 
 const AlumniProfile: React.FC = () => {
@@ -31,6 +38,8 @@ const AlumniProfile: React.FC = () => {
 
   // Add followers state
   const [followers, setFollowers] = useState<any[]>([]);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   // Load user data based on id param or localStorage user
   useEffect(() => {
@@ -59,10 +68,11 @@ const AlumniProfile: React.FC = () => {
           if (userId === (JSON.parse(localStorage.getItem('user') || '{}').user_id || JSON.parse(localStorage.getItem('user') || '{}').id)) {
             localStorage.setItem('user', JSON.stringify(profile.alumni));
           }
-          // Fetch followers for this user, ensure userId is number
+          // Determine numeric user id being viewed
           const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
-          if (numericUserId !== undefined && numericUserId !== null && !isNaN(numericUserId)) {
-            fetchFollowers(numericUserId)
+          if (numericUserId !== undefined && numericUserId !== null && !isNaN(Number(numericUserId))) {
+            // Followers list for the viewed profile
+            fetchFollowers(Number(numericUserId))
               .then(data => {
                 if (data.success && data.followers) {
                   setFollowers(data.followers);
@@ -71,6 +81,25 @@ const AlumniProfile: React.FC = () => {
                 }
               })
               .catch(() => setFollowers([]));
+
+            // Decide own vs other profile by comparing with logged-in user id
+            const currentUserObj = JSON.parse(localStorage.getItem('user') || '{}');
+            const currentId = currentUserObj.user_id || currentUserObj.id;
+            const viewingOwn = Number(numericUserId) === Number(currentId);
+            setIsOwnProfile(viewingOwn);
+
+            // Fetch follow status only if viewing someone else's profile
+            if (!viewingOwn) {
+              checkFollowStatus(Number(numericUserId))
+                .then(data => {
+                  if (data.success) {
+                    setIsFollowing(!!data.is_following);
+                  }
+                })
+                .catch(error => {
+                  console.error('Error checking follow status:', error);
+                });
+            }
           } else {
             setFollowers([]);
           }
@@ -167,6 +196,46 @@ const handleDeleteResume = async () => {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     navigate('/login');
+  };
+
+  const handleFollow = async () => {
+    if (!id) return;
+    setFollowLoading(true);
+    try {
+      console.log('Attempting to follow user:', id);
+      const result = await followUser(parseInt(id));
+      console.log('Follow result:', result);
+      if (result.success) {
+        setIsFollowing(true);
+        console.log('Successfully followed user');
+      } else {
+        console.log('Follow failed:', result.message);
+      }
+    } catch (error) {
+      console.error('Error following user:', error);
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
+  const handleUnfollow = async () => {
+    if (!id) return;
+    setFollowLoading(true);
+    try {
+      console.log('Attempting to unfollow user:', id);
+      const result = await unfollowUser(parseInt(id));
+      console.log('Unfollow result:', result);
+      if (result.success) {
+        setIsFollowing(false);
+        console.log('Successfully unfollowed user');
+      } else {
+        console.log('Unfollow failed:', result.message);
+      }
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+    } finally {
+      setFollowLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -435,15 +504,20 @@ const handleSave = async () => {
                   {Array.from({ length: Math.ceil(followers.length / 3) }).map((_, rowIndex) => (
                     <div key={rowIndex} className="profile-followers-row">
                       {followers.slice(rowIndex * 3, rowIndex * 3 + 3).map((follower) => (
-                        <div key={follower.id} className="profile-follower-item">
+                        <div 
+                          key={follower.id} 
+                          className="profile-follower-item"
+                          onClick={() => navigate(`/alumni/profile/${follower.user_id}`)}
+                          style={{ cursor: 'pointer' }}
+                        >
                           <img
-                            src={follower.profile_pic ? `http://127.0.0.1:8000${follower.profile_pic}` : 'https://randomuser.me/api/portraits/lego/1.jpg'}
+                            src={follower.profile_pic ? `http://127.0.0.1:8000${follower.profile_pic}` : ctulogo}
                             alt={follower.name}
                             className="profile-follower-img"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.onerror = null;
-                              target.src = 'https://randomuser.me/api/portraits/lego/1.jpg';
+                              target.src = ctulogo as unknown as string;
                             }}
                           />
                           <div className="profile-follower-name">{follower.name}</div>
@@ -478,13 +552,21 @@ const handleSave = async () => {
                 className="profile-image"
               />
               <div className="profile-name">
-                {user?.name || 'namee'}
+                {user?.name || 'Loading...'}
               </div>
               <div className="profile-university">
-                {user?.university || 'wowow'}
+                {user?.course || 'Loading...'}
               </div>
               <div className="profile-other-actions-below-university">
-                <button className="profile-follow-button">Follow</button>
+                {!isOwnProfile && (
+                  <button 
+                    className={`profile-follow-button ${isFollowing ? 'following' : ''}`}
+                    onClick={isFollowing ? handleUnfollow : handleFollow}
+                    disabled={followLoading}
+                  >
+                    {followLoading ? '...' : isFollowing ? 'Unfollow' : 'Follow'}
+                  </button>
+                )}
                 <button className="profile-message-button">Message</button>
               </div>
             </div>
@@ -513,9 +595,14 @@ const handleSave = async () => {
             {/* Post Header */}
             <div className="profile-post-header">
               <img 
-                src={user?.profile_pic || ctulogo} 
+                src={user?.profile_pic ? (user.profile_pic.startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo} 
                 alt="Profile" 
                 className="profile-post-profile-image"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null;
+                  target.src = ctulogo as unknown as string;
+                }}
               />
               <div>
                 <div className="profile-post-user-name">

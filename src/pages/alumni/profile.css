@@ -818,3 +818,65 @@
   align-items: center;
   gap: 4px;
 }
+
+/* Follow button styles */
+.profile-follow-button {
+  background: #174f84;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.profile-follow-button:hover {
+  background: #0d3a5f;
+}
+
+.profile-follow-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.profile-follow-button.following {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.profile-follow-button.following:hover {
+  background: #d0d0d0;
+}
+
+/* Suggested user follow button styles */
+.suggested-user-follow-button {
+  background: #174f84;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.suggested-user-follow-button:hover {
+  background: #0d3a5f;
+}
+
+.suggested-user-follow-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.suggested-user-follow-button.following {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.suggested-user-follow-button.following:hover {
+  background: #d0d0d0;
+}
