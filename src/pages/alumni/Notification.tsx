@@ -254,7 +254,7 @@ const NotificationPage: React.FC = () => {
                   })}
                 </div>
               ) : (
-                openNotif.content
+                renderMessageWithButton(openNotif.content)
               )}
             </div>
           </div>

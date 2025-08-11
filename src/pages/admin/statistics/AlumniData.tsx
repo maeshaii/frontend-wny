@@ -147,7 +147,7 @@ const AlumniData: React.FC = () => {
     <div style={{ display: 'flex', height: '100vh', fontFamily: 'Arial, sans-serif' }}>
       <Sidebar />
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', marginLeft: 220 }}>
        {/* Header */}
 <div
   style={{
