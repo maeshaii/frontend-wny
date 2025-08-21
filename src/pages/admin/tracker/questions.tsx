@@ -63,6 +63,11 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   // Add validation state
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  // New state for job alignment question
+  const [customJobInputs, setCustomJobInputs] = useState<{ [questionId: string]: boolean }>({});
+  const [jobInputValues, setJobInputValues] = useState<{ [questionId: string]: string }>({});
+  const [jobAlignment, setJobAlignment] = useState<Record<string, string>>({});
+
   // Conditional rendering logic
   const shouldShowCategory = (category: CategoryItem) => {
     // Check if this is "PART III: EMPLOYMENT STATUS" category
@@ -541,6 +546,24 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
     return text.includes('course') || text.includes('year graduated') || text.includes('batch');
   }
 
+  // New handler for job change
+  const handleJobChange = (catId: number, qId: number | string, value: any) => {
+    // This is called when a value is selected from dropdown or entered
+    const isCustom = typeof value === 'string' && !jobList.some(j => j.title === value);
+    setCustomJobInputs(prev => ({ ...prev, [qId]: isCustom }));
+    handleResponseChange(catId, qId, value);
+    if (!isCustom) {
+      setJobAlignment(prev => ({ ...prev, [qId]: '' }));
+    }
+  };
+
+  const handleJobInputChange = (qId: number | string, value: string) => {
+    setJobInputValues(prev => ({ ...prev, [qId]: value }));
+    // Show radio if not in jobList and not empty
+    const isCustom = !!value && !jobList.some(j => j.title.toLowerCase() === value.toLowerCase());
+    setCustomJobInputs(prev => ({ ...prev, [qId]: Boolean(isCustom) }));
+  };
+
   return (
     <div className="tracker-container">
       <div className="tracker-inner">
@@ -561,6 +584,7 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
                   cat.title.toLowerCase().includes('unemployed') || 
                   cat.title.toLowerCase().includes('further study'))}
                 {cat.questions.map((q, qIdx) => {
+                  // Question 26: Current Position (Job)
                   if (q.text.toLowerCase().includes('current position')) {
                     return (
                       <div key={q.id} style={{ marginBottom: 16 }}>
@@ -569,35 +593,123 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
                           options={jobList}
                           getOptionLabel={option => typeof option === 'string' ? option : option.title}
                           filterOptions={(options, { inputValue }) => {
-                            if (!inputValue) return options.slice(0, 50); // Show first 50 if no input
+                            if (!inputValue) return options.slice(0, 50);
                             const searchTerm = inputValue.toLowerCase();
                             return options
-                              .filter(option => 
-                                option.title.toLowerCase().includes(searchTerm)
-                              )
-                              .slice(0, 100); // Limit results for performance
+                              .filter(option => option.title.toLowerCase().includes(searchTerm))
+                              .slice(0, 100);
                           }}
                           ListboxProps={{ style: { maxHeight: 400 } }}
-                          freeSolo={true} // Allow free text entry
+                          freeSolo={true}
+                          value={formResponses[q.id] || ''}
+                          inputValue={jobInputValues[q.id] || ''}
+                          onInputChange={(_, value) => handleJobInputChange(q.id, value)}
                           onChange={(_, value) => {
                             if (typeof value === 'string') {
-                              handleResponseChange(cat.id, q.id, value);
+                              handleJobChange(cat.id, q.id, value);
                               handleResponseChange(cat.id, 'Job Code', '');
+                              setJobInputValues(prev => ({ ...prev, [q.id]: value }));
                             } else if (value) {
-                              handleResponseChange(cat.id, q.id, value.title);
+                              handleJobChange(cat.id, q.id, value.title);
                               handleResponseChange(cat.id, 'Job Code', value.code);
+                              setJobInputValues(prev => ({ ...prev, [q.id]: value.title }));
                             } else {
-                              handleResponseChange(cat.id, q.id, '');
+                              handleJobChange(cat.id, q.id, '');
                               handleResponseChange(cat.id, 'Job Code', '');
+                              setJobInputValues(prev => ({ ...prev, [q.id]: '' }));
                             }
                           }}
                           renderInput={params => (
                             <TextField {...params} label="Select or type Job Title" variant="outlined" fullWidth />
                           )}
                         />
+                        {/* Show radio if custom job for this question */}
+                        {customJobInputs[q.id] && jobInputValues[q.id] && (
+                          <div style={{ marginTop: 8 }}>
+                            <label style={{ fontWeight: 500 }}>Is this job aligned to your course?</label>
+                            <div>
+                              <label>
+                                <input
+                                  type="radio"
+                                  name={`job_alignment_${q.id}`}
+                                  value="Yes"
+                                  checked={jobAlignment[q.id] === 'Yes'}
+                                  onChange={() => {
+                                    setJobAlignment(prev => ({ ...prev, [q.id]: 'Yes' }));
+                                    handleResponseChange(cat.id, `job_alignment_${q.id}`, 'Yes');
+                                  }}
+                                /> Yes
+                              </label>
+                              <label style={{ marginLeft: 16 }}>
+                                <input
+                                  type="radio"
+                                  name={`job_alignment_${q.id}`}
+                                  value="No"
+                                  checked={jobAlignment[q.id] === 'No'}
+                                  onChange={() => {
+                                    setJobAlignment(prev => ({ ...prev, [q.id]: 'No' }));
+                                    handleResponseChange(cat.id, `job_alignment_${q.id}`, 'No');
+                                  }}
+                                /> No
+                              </label>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   }
+
+                  // Question 28: Awards/Recognition
+                  if (q.text.toLowerCase().includes('have you received any awards')) {
+                    return (
+                      <div key={q.id} style={{ marginBottom: 16 }}>
+                        <label style={{ fontWeight: 500 }}>{getQuestionNumber(catIdx, qIdx)}. {q.text}</label>
+                        <div>
+                          <label>
+                            <input
+                              type="radio"
+                              name={`awards_${q.id}`}
+                              value="Yes"
+                              checked={formResponses[q.id] === 'Yes'}
+                              onChange={() => handleResponseChange(cat.id, q.id, 'Yes')}
+                            /> Yes
+                          </label>
+                          <label style={{ marginLeft: 16 }}>
+                            <input
+                              type="radio"
+                              name={`awards_${q.id}`}
+                              value="No"
+                              checked={formResponses[q.id] === 'No'}
+                              onChange={() => handleResponseChange(cat.id, q.id, 'No')}
+                            /> No
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Question 29: Supporting Documents for awards/recognition
+                  if (q.text.toLowerCase().includes('supporting documents for awards')) {
+                    // Find question 28's id
+                    const awardsQ = categories
+                      .flatMap(cat => cat.questions)
+                      .find(qq => qq.text.toLowerCase().includes('have you received any awards'));
+                    const awardsQId = awardsQ?.id;
+                    // Only show if answered Yes and awardsQId is defined
+                    if (!awardsQId || formResponses[awardsQId] !== 'Yes') return null;
+                  }
+
+                  // Question 33: Name of the award/s you have received
+                  if (q.text.toLowerCase().includes('name of the award')) {
+                    // Find question 28's id
+                    const awardsQ = categories
+                      .flatMap(cat => cat.questions)
+                      .find(qq => qq.text.toLowerCase().includes('have you received any awards'));
+                    const awardsQId = awardsQ?.id;
+                    // Only show if answered Yes and awardsQId is defined
+                    if (!awardsQId || formResponses[awardsQId] !== 'Yes') return null;
+                  }
+
                   return (
                   <div key={q.id} style={{ marginBottom: 16 }}>
                     <label style={{ fontWeight: 500 }}>{getQuestionNumber(catIdx, qIdx)}. {q.text}</label>

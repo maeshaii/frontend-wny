@@ -5,6 +5,54 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Attach Authorization header automatically
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('accessToken');
+  if (token) {
+    (config.headers as any) = (config.headers as any) || {};
+    (config.headers as any).Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Auto refresh access token on 401 once and retry
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config || {};
+    if (error.response?.status === 401 && !(originalRequest as any)._retry) {
+      (originalRequest as any)._retry = true;
+      try {
+        const refresh = localStorage.getItem('refreshToken');
+        if (!refresh) throw new Error('No refresh token');
+        const refreshResp = await axios.post('http://127.0.0.1:8000/api/token/refresh/', { refresh });
+        const newAccess = refreshResp.data?.access;
+        if (!newAccess) throw new Error('No access in refresh response');
+        localStorage.setItem('accessToken', newAccess);
+        (originalRequest.headers as any) = (originalRequest.headers as any) || {};
+        (originalRequest.headers as any).Authorization = `Bearer ${newAccess}`;
+        return api(originalRequest);
+      } catch (e) {
+        // Clear tokens on failure
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Helper: get user info from localStorage (same semantics as mobile getUserInfo)
+export const getUserInfo = () => {
+  try {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+  } catch {
+    return null;
+  }
+};
+
 // Fetch followers for a user
 export const fetchFollowers = async (userId: number) => {
   const response = await api.get(`alumni/${userId}/followers/`);
@@ -187,7 +235,7 @@ export const importOJT = async (file: File, batchYear: string, course: string, c
 export const fetchOJTStatistics = async (coordinatorUsername?: string) => {
   const url = coordinatorUsername 
     ? `http://127.0.0.1:8000/api/ojt/statistics/?coordinator=${coordinatorUsername}`
-    : 'http://127.0.0.1:8000/api/ojt/statistics/';
+  : 'http://127.0.0.1:8000/api/ojt/statistics/';
   const response = await axios.get(url);
   return response.data;
 };
@@ -253,6 +301,81 @@ export const deleteNotifications = async (notificationIds: number[]) => {
 // Fetch single alumni details by user_id
 export const fetchAlumniDetails = async (userId: string | number) => {
   const response = await api.get(`alumni/${userId}/`);
+  return response.data;
+};
+
+// -------- Posts API (ported and hardened) --------
+export const getPostCategories = async () => {
+  const token = localStorage.getItem('accessToken');
+  try {
+    const response = await api.get('post-categories/', {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    const categories = (response.data && (response.data.categories || response.data)) || [];
+    return { categories };
+  } catch (e) {
+    // Fallback to absolute URL without axios instance
+    const response = await axios.get('http://127.0.0.1:8000/api/post-categories/');
+    const categories = (response.data && (response.data.categories || response.data)) || [];
+    return { categories };
+  }
+};
+
+export const getPosts = async () => {
+  const response = await api.get('posts/');
+  return response.data?.posts || [];
+};
+
+export const createPost = async (postData: {
+  post_title: string;
+  post_content: string;
+  post_image?: string;
+  post_cat_id: number;
+  type?: string;
+}) => {
+  const token = localStorage.getItem('accessToken');
+  const response = await api.post('posts/', postData, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  return response.data;
+};
+
+// Post interactions
+export const likePost = async (postId: number) => {
+  const response = await api.post(`posts/${postId}/like/`);
+  return response.data;
+};
+
+export const unlikePost = async (postId: number) => {
+  const token = localStorage.getItem('accessToken');
+  const res = await fetch(`http://127.0.0.1:8000/api/posts/${postId}/like/`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  if (!res.ok) throw new Error('Failed to unlike post');
+  return await res.json();
+};
+
+export const commentOnPost = async (postId: number, commentContent: string) => {
+  const response = await api.post(`posts/${postId}/comments/`, { comment_content: commentContent });
+  return response.data;
+};
+
+export const getPostComments = async (postId: number) => {
+  const response = await api.get(`posts/${postId}/comments/`);
+  return response.data;
+};
+
+export const repostPost = async (postId: number) => {
+  const response = await api.post(`posts/${postId}/repost/`);
+  return response.data;
+};
+
+export const deleteRepost = async (repostId: number) => {
+  const response = await api.delete(`reposts/${repostId}/`);
   return response.data;
 };
 

@@ -4,6 +4,23 @@ import AlumniTopBar from './AlumniTopBar';
 import ctulogo from '../../images/ctulogo.png';
 import './profile.css';
 import { fetchFollowers, followUser, unfollowUser, checkFollowStatus } from '../../services/api';  // Import follow functions
+import { getPosts } from '../../services/api';
+import PostCreate from './PostCreate'; // Import PostCreate component
+
+function formatTimeAgo(iso?: string | null): string {
+  if (!iso) return '';
+  const then = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - then.getTime();
+  const sec = Math.floor(diffMs / 1000);
+  const min = Math.floor(sec / 60);
+  const hr = Math.floor(min / 60);
+  const day = Math.floor(hr / 24);
+  if (day >= 1) return day === 1 ? '1 day ago' : `${day} days ago`;
+  if (hr >= 1) return hr === 1 ? '1 hour ago' : `${hr} hours ago`;
+  if (min >= 1) return min === 1 ? '1 minute ago' : `${min} minutes ago`;
+  return 'Just now';
+}
 
 interface AlumniUser {
   name: string;
@@ -24,6 +41,28 @@ interface AlumniUser {
   year_graduated?: string | number;
 }
 
+interface CommentItem {
+  comment_id: number;
+  comment_content: string;
+  date_created: string;
+  user: {
+    user_id: number;
+    f_name: string;
+    l_name: string;
+    profile_pic?: string;
+  };
+}
+
+interface PostItem {
+  post_id: number;
+  post_title?: string;
+  post_content: string;
+  post_image?: string | null;
+  created_at?: string | null;
+  user?: { user_id?: number; f_name?: string; l_name?: string; profile_pic?: string };
+  comments?: CommentItem[];
+}
+
 const AlumniProfile: React.FC = () => {
   const [user, setUser] = useState<AlumniUser | null>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -40,6 +79,13 @@ const AlumniProfile: React.FC = () => {
   const [followers, setFollowers] = useState<any[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+
+  // Posts for this profile
+  const [posts, setPosts] = useState<PostItem[]>([]);
+  const [showComposer, setShowComposer] = useState(false);
+
+  // New state to control comment visibility
+  const [showAllComments, setShowAllComments] = useState<{ [key: number]: boolean }>({});
 
   // Load user data based on id param or localStorage user
   useEffect(() => {
@@ -100,8 +146,21 @@ const AlumniProfile: React.FC = () => {
                   console.error('Error checking follow status:', error);
                 });
             }
+
+            // Load posts for this user
+            getPosts()
+              .then((all: any[]) => {
+                console.log('Profile posts fetched:', all);
+                const subset = (all || []).filter(p => p.user?.user_id === Number(numericUserId));
+                setPosts(subset);
+              })
+              .catch((error) => {
+                console.error('Error fetching profile posts:', error);
+                setPosts([]);
+              });
           } else {
             setFollowers([]);
+            setPosts([]);
           }
         } else {
           alert('Failed to load profile.');
@@ -126,70 +185,6 @@ const AlumniProfile: React.FC = () => {
   const [bioInput, setBioInput] = useState('');
   const [bioLoading, setBioLoading] = useState(false);
 
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
-
-  const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (file && file.type === 'application/pdf') {
-    setResumeFile(file);
-  } else {
-    alert('Please upload a valid PDF file.');
-  }
-};
-
-const handleSaveResume = async () => {
-  if (!resumeFile) {
-    alert("No resume file selected.");
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append('resume', resumeFile);
-
-  const userObj = JSON.parse(localStorage.getItem('user') || '{}');
-  const userId = userObj.user_id || userObj.id;
-  const url = `http://127.0.0.1:8000/api/resume/update/?user_id=${userId}`;
-
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      body: formData,
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const updatedUser = { ...userObj, profile_resume: data.resume };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      alert("Resume uploaded!");
-    } else {
-      const err = await res.json();
-      alert("Failed to upload resume: " + (err.message || "Unknown error"));
-    }
-  } catch (err) {
-    alert("Network error: " + err);
-  }
-};
-const handleDeleteResume = async () => {
-  const userObj = JSON.parse(localStorage.getItem('user') || '{}');
-  const userId = userObj.user_id || userObj.id;
-
-  try {
-    const res = await fetch(`http://127.0.0.1:8000/api/resume/delete/?user_id=${userId}`, {
-      method: 'DELETE',
-    });
-    if (res.ok) {
-      const updatedUser = { ...userObj, profile_resume: null };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      alert("Resume deleted.");
-    } else {
-      const err = await res.json();
-      alert("Failed to delete resume: " + (err.message || "Unknown error"));
-    }
-  } catch (err) {
-    alert("Network error: " + err);
-  }
-};
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
@@ -410,8 +405,29 @@ const handleSave = async () => {
     setBioLoading(false);
   };
 
+  const onPosted = async () => {
+    // Force refresh posts from backend with proper typing and delay
+    try {
+      // Small delay to ensure database write is complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const allPosts: PostItem[] = await getPosts();
+      const currentUserId = Number(id) || Number(JSON.parse(localStorage.getItem('user') || '{}').user_id || JSON.parse(localStorage.getItem('user') || '{}').id);
+      
+      if (currentUserId) {
+        const subset = (allPosts || []).filter((p: PostItem) => Number(p.user?.user_id) === currentUserId);
+        console.log('Refreshed posts:', subset.length, 'posts for user', currentUserId);
+        setPosts(subset);
+      }
+    } catch (error) {
+      console.error('Error refreshing profile posts:', error);
+      // Fallback: reload the entire page if refresh fails
+      window.location.reload();
+    }
+  };
+
   return (
-    <div className="profile-container">
+    <div className="profile-container"> 
       <AlumniTopBar 
         showProfile={showProfile} 
         setShowProfile={setShowProfile} 
@@ -453,38 +469,6 @@ const handleSave = async () => {
             ) : null
           )}
 
-{user?.profile_resume ? (
-  <div className="profile-resume-wrapper">
-    <a 
-      href={`http://127.0.0.1:8000${user.profile_resume}`} 
-      target="_blank" 
-      rel="noopener noreferrer"
-      className="profile-resume-link"
-    >
-      View Resume
-    </a>
-    {isOwnProfile ? (
-      <button
-        onClick={handleDeleteResume}
-        className="profile-resume-delete-btn"
-      >
-        Delete Resume
-      </button>
-    ) : null}
-  </div>
-) : (
-  isOwnProfile ? (
-    <>
-      <input type="file" accept="application/pdf" onChange={handleResumeChange} />
-      <button
-        onClick={handleSaveResume}
-        className="profile-resume-upload-btn"
-      >
-        Upload Resume
-      </button>
-    </>
-  ) : null
-)}
 
             </div>
           </div>
@@ -511,7 +495,7 @@ const handleSave = async () => {
                           style={{ cursor: 'pointer' }}
                         >
                           <img
-                            src={follower.profile_pic ? `http://127.0.0.1:8000${follower.profile_pic}` : ctulogo}
+                            src={follower.profile_pic ? (String(follower.profile_pic).startsWith('http') ? follower.profile_pic : `http://127.0.0.1:8000${follower.profile_pic}`) : ctulogo}
                             alt={follower.name}
                             className="profile-follower-img"
                             onError={(e) => {
@@ -547,7 +531,7 @@ const handleSave = async () => {
           <div className="profile-info-section">
             <div className="profile-info-card">
               <img 
-                src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo}
+                src={user?.profile_pic ? (String(user.profile_pic).startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo}
                 alt="Profile" 
                 className="profile-image"
               />
@@ -574,10 +558,10 @@ const handleSave = async () => {
 
           {/* Start a Post */}
           {isOwnProfile && (
-            <div className="profile-start-post-card">
+            <div className="profile-start-post-card" onClick={() => setShowComposer(true)} style={{ cursor: 'pointer' }}>
               <div className="profile-start-post-input-container">
                 <img 
-                  src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo}
+                  src={user?.profile_pic ? (String(user.profile_pic).startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo}
                   alt="Profile" 
                   className="profile-start-post-profile-image"
                 />
@@ -585,56 +569,118 @@ const handleSave = async () => {
                   type="text" 
                   placeholder="Start a post" 
                   className="profile-start-post-input"
+                  readOnly
                 />
               </div>
             </div>
           )}
 
-          {/* Social Media Post */}
-          <div className="profile-social-post-card">
-            {/* Post Header */}
-            <div className="profile-post-header">
-              <img 
-                src={user?.profile_pic ? (user.profile_pic.startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo} 
-                alt="Profile" 
-                className="profile-post-profile-image"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.onerror = null;
-                  target.src = ctulogo as unknown as string;
-                }}
-              />
-              <div>
-                <div className="profile-post-user-name">
-                  {user?.name || 'ok'}
-                </div>
-                <div className="profile-post-meta">
-                  <span>3,000,000 Followers</span>
-                  <span>•</span>
-                  <span>2 d</span>
-                  <span>🌐</span>
+          {/* Show the composer modal */}
+          {showComposer && (
+            <PostCreate
+              onPosted={onPosted}
+              onCancel={() => setShowComposer(false)}
+              user={user ?? { name: '', profile_pic: undefined }}
+            />
+          )}
+
+          {/* Posts List for this profile */}
+          {posts.map((p) => {
+            const profileAvatar = user?.profile_pic ? (String(user.profile_pic).startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : undefined;
+            const postUserAvatar = p.user?.profile_pic ? (String(p.user.profile_pic).startsWith('http') ? p.user.profile_pic : `http://127.0.0.1:8000${p.user.profile_pic}`) : undefined;
+            const displayAvatar = profileAvatar || postUserAvatar || ctulogo;
+            const displayName = user?.name || `${p.user?.f_name || ''} ${p.user?.l_name || ''}`.trim();
+            return (
+            <div key={p.post_id} className="profile-social-post-card">
+              <div className="profile-post-header">
+                <img 
+                  src={displayAvatar} 
+                  alt="Profile" 
+                  className="profile-post-profile-image"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.onerror = null;
+                    target.src = ctulogo as unknown as string;
+                  }}
+                />
+                <div>
+                  <div className="profile-post-user-name">{displayName}</div>
+                  <div className="profile-post-meta" style={{ color: '#666', fontSize: '12px' }}>
+                    <span>{formatTimeAgo(p.created_at) || 'Unknown time'}</span>
+                  </div>
                 </div>
               </div>
+              <div className="profile-post-content">{p.post_content}</div>
+              {p.post_image && (
+                <div style={{ marginTop: 8 }}>
+                  <img 
+                    src={p.post_image} 
+                    alt="post" 
+                    style={{ maxWidth: '100%', borderRadius: 8, maxHeight: '400px', objectFit: 'cover' }}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      console.error('Failed to load post image:', p.post_image);
+                    }}
+                  />
+                </div>
+              )}
+              {/* Display comments (unified UI with Dashboard) */}
+              {p.comments && p.comments.length > 0 && (
+                <div className="comments-section" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #eee' }}>
+                  {(showAllComments[p.post_id] ? p.comments : p.comments.slice(0, 2)).map((comment) => (
+                    <div key={comment.comment_id} className="comment-item" style={{ display: 'flex', gap: '8px', marginBottom: '8px', padding: '8px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+                      <img 
+                        src={comment.user.profile_pic ? (String(comment.user.profile_pic).startsWith('http') ? comment.user.profile_pic : `http://127.0.0.1:8000${comment.user.profile_pic}`) : ctulogo} 
+                        alt="Profile" 
+                        className="comment-profile-image"
+                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = ctulogo as unknown as string;
+                        }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#333' }}>
+                          {comment.user.f_name} {comment.user.l_name}
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#555' }}>
+                          {comment.comment_content}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
+                          {formatTimeAgo(comment.date_created)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {p.comments.length > 2 && !showAllComments[p.post_id] && (
+                    <button
+                      className="view-all-comments-btn"
+                      style={{ fontSize: '12px', color: '#007bff', background: 'none', border: 'none', cursor: 'pointer', marginTop: '4px' }}
+                      onClick={() => setShowAllComments(prev => ({ ...prev, [p.post_id]: true }))}
+                    >
+                      View all comments ({p.comments.length})
+                    </button>
+                  )}
+                  {p.comments.length > 2 && showAllComments[p.post_id] && (
+                    <button
+                      className="hide-comments-btn"
+                      style={{ fontSize: '12px', color: '#007bff', background: 'none', border: 'none', cursor: 'pointer', marginTop: '4px' }}
+                      onClick={() => setShowAllComments(prev => ({ ...prev, [p.post_id]: false }))}
+                    >
+                      Hide comments
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="profile-post-actions" style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                <span className="profile-post-action-item">❤️ Like</span>
+                <span className="profile-post-action-item">💬 Comment</span>
+                <span className="profile-post-action-item">🔄 Repost</span>
+              </div>
             </div>
-
-            {/* Post Content */}
-            <div className="profile-post-content">
-              Lorem ipsum dolor sit amet. Quo asperiores enim ut veniam repudiandae eum quisquam voluptatem non dolore veritatis eos quia suscipit sed facere alias nam voluptate quia. Ut neque ipsam sed explicabo nemo ut sapiente consectetur qui omnis ducimus qui voluptatem iusto? Id enim quia quo quam consequatur sit nulla delectus aut accusamus velit est animi sint eos consequatur nemo sit facilis ipsam. Est dolores tenetur in dignissimos velit At rerum minus qui velit autern qui officia sint!
-            </div>
-
-            {/* Post Actions */}
-            <div className="profile-post-actions">
-              <span className="profile-post-action-item">
-                ❤️ Like
-              </span>
-              <span className="profile-post-action-item">
-                💬 Comment
-              </span>
-              <span className="profile-post-action-item">
-                🔄 Repost
-              </span>
-            </div>
-          </div>
+          );})}
         </div>
 
         {/* Bio Modal */}

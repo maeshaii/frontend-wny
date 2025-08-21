@@ -3,6 +3,22 @@ import { fetchNotifications, deleteNotifications } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import AlumniTopBar from './AlumniTopBar';
 
+function formatTimeAgo(iso?: string | null): string {
+  if (!iso) return '';
+  const then = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - then.getTime();
+  const sec = Math.floor(diffMs / 1000);
+  const min = Math.floor(sec / 60);
+  const hr = Math.floor(min / 60);
+  const day = Math.floor(hr / 24);
+  if (day >= 2) return `${day} days ago`;
+  if (day === 1) return 'Yesterday';
+  if (hr >= 1) return hr === 1 ? '1 hour ago' : `${hr} hours ago`;
+  if (min >= 1) return min === 1 ? '1 min ago' : `${min} mins ago`;
+  return 'Just now';
+}
+
 const NotificationPage: React.FC = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +140,6 @@ const NotificationPage: React.FC = () => {
             <thead>
               <tr style={{ background: '#f5f7fa' }}>
                 <th style={{ width: 40 }}></th>
-                <th style={{ width: 40 }}></th>
                 <th style={{ textAlign: 'left', padding: 8 }}>Sender</th>
                 <th style={{ textAlign: 'left', padding: 8 }}>Subject</th>
                 <th style={{ textAlign: 'left', padding: 8 }}>Content</th>
@@ -133,16 +148,19 @@ const NotificationPage: React.FC = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24 }}>Loading...</td></tr>
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>Loading...</td></tr>
               ) : filteredNotifications.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: '#888' }}>No notifications found.</td></tr>
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24, color: '#888' }}>No notifications found.</td></tr>
               ) : filteredNotifications.map((notif) => (
                 <tr
                   key={notif.id}
-                  style={{ borderBottom: '1px solid #eee', background: selected.includes(notif.id) ? '#e0e7ef' : undefined, cursor: 'pointer' }}
-                  onClick={() => {
-                    setOpenNotif(notif);
+                  style={{
+                    borderBottom: '1px solid #eee',
+                    background: selected.includes(notif.id) ? '#e0e7ef' : undefined,
+                    cursor: 'pointer',
+                    height: 44
                   }}
+                  onClick={() => setOpenNotif(notif)}
                 >
                   <td>
                     <input
@@ -152,19 +170,24 @@ const NotificationPage: React.FC = () => {
                       onChange={() => toggleSelect(notif.id)}
                     />
                   </td>
-                  <td>
-                    <button
-                      style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                      title="Expand"
-                      onClick={e => { e.stopPropagation(); setOpenNotif(notif); }}
-                    >
-                      <span role="img" aria-label="expand">▾</span>
-                    </button>
+                  {/* Removed the arrow button cell */}
+                  <td style={{ fontWeight: 600, color: '#174f84', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 80 }}>{notif.type}</td>
+                  <td style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{notif.subject || 'No Subject'}</td>
+                  <td style={{ color: '#333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 320 }}>
+                    {notif.content.length > 40 ? notif.content.slice(0, 40) + '...' : notif.content}
                   </td>
-                  <td style={{ fontWeight: 600, color: '#174f84' }}>{notif.type}</td>
-                  <td style={{ fontWeight: 600 }}>{notif.subject || 'No Subject'}</td>
-                  <td style={{ color: '#333' }}>{notif.content.length > 60 ? notif.content.slice(0, 60) + '...' : notif.content}</td>
-                  <td style={{ textAlign: 'right', color: '#888', fontSize: 13 }}>{notif.date}</td>
+                  <td style={{
+                    textAlign: 'right',
+                    color: '#888',
+                    fontSize: 13,
+                    whiteSpace: 'nowrap',
+                    paddingLeft: '8px', // reduce space between content and date
+                    paddingRight: '8px',
+                    minWidth: '80px',
+                    width: '1%',
+                  }}>
+                    {formatTimeAgo(notif.date)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -264,4 +287,4 @@ const NotificationPage: React.FC = () => {
   );
 };
 
-export default NotificationPage; 
+export default NotificationPage;

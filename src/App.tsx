@@ -20,7 +20,6 @@ import AdminProfilePage from './pages/admin/dashboard/AdminProfilePage';
 
 
 
-
 import CoordinatorDashboard from './pages/coordinator/dashboard';
 // import other pages like Statistics, Users, etc.
 
@@ -51,7 +50,6 @@ const App: React.FC = () => {
 
         <Route path="/coordinator/dashboard" element={<CoordinatorDashboard />} />
         <Route path="/alumni/profile/:id" element={<AlumniProfile />} />
-
 
         {/* Add more routes like:
         <Route path="/statistics" element={<Statistics />} />

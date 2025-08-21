@@ -1,9 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchNotifications, followUser, unfollowUser, checkFollowStatus } from '../../services/api';
+import { getPosts, commentOnPost } from '../../services/api';
 import AlumniTopBar from './AlumniTopBar';
+import PostCreate from './PostCreate';
 import ctulogo from '../../images/ctulogo.png';
 import './dashboard.css';
+import { likePost, repostPost, unlikePost } from '../../services/api';
+
+function formatTimeAgo(iso?: string | null): string {
+  if (!iso) return '';
+  const then = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - then.getTime();
+  const sec = Math.floor(diffMs / 1000);
+  const min = Math.floor(sec / 60);
+  const hr = Math.floor(min / 60);
+  const day = Math.floor(hr / 24);
+  if (day >= 1) return day === 1 ? '1 day ago' : `${day} days ago`;
+  if (hr >= 1) return hr === 1 ? '1 hour ago' : `${hr} hours ago`;
+  if (min >= 1) return min === 1 ? '1 minute ago' : `${min} minutes ago`;
+  return 'Just now';
+}
 
 interface AlumniUser {
   name: string;
@@ -14,17 +32,44 @@ interface AlumniUser {
   university?: string;
 }
 
-interface Post {
-  id: number;
-  author: {
-    name: string;
-    profile_pic: string;
+interface RepostItem {
+  repost_id: number;
+  repost_date: string;
+  user: {
+    user_id: number;
+    f_name: string;
+    l_name: string;
+    profile_pic?: string;
   };
-  content: string;
-  timestamp: string;
-  likes: number;
-  comments: number;
-  reposts: number;
+}
+
+interface CommentItem {
+  comment_id: number;
+  comment_content: string;
+  date_created: string;
+  user: {
+    user_id: number;
+    f_name: string;
+    l_name: string;
+    profile_pic?: string;
+  };
+}
+
+interface PostItem {
+  post_id: number;
+  post_title?: string;
+  post_content: string;
+  post_image?: string | null;
+  created_at?: string | null;
+  user?: { 
+    user_id?: number; 
+    f_name?: string; 
+    l_name?: string; 
+    profile_pic?: string;
+    name?: string;
+  };
+  comments?: CommentItem[];
+  reposts?: RepostItem[];
 }
 
 interface SuggestedUser {
@@ -32,15 +77,21 @@ interface SuggestedUser {
   name: string;
   profile_pic: string;
   batch?: string | number;
-  isFollowing?: boolean;
 }
 
 const AlumniDashboard: React.FC = () => {
   const [user, setUser] = useState<AlumniUser | null>(null);
   const [showProfile, setShowProfile] = useState(false);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<PostItem[]>([]);
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
   const [followLoading, setFollowLoading] = useState<{ [key: number]: boolean }>({});
+  const [showComposer, setShowComposer] = useState(false);
+  const [commentInput, setCommentInput] = useState<{ [key: number]: string }>({});
+  const [showCommentInput, setShowCommentInput] = useState<{ [key: number]: boolean }>({});
+  const [showAllComments, setShowAllComments] = useState<{ [key: number]: boolean }>({});
+  const [likedPosts, setLikedPosts] = useState<{ [key: number]: boolean }>({});
+  const [repostedPosts, setRepostedPosts] = useState<{ [key: number]: boolean }>({});
+  const [repostError, setRepostError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -55,13 +106,7 @@ const AlumniDashboard: React.FC = () => {
     try {
       const result = await followUser(userId);
       if (result.success) {
-        setSuggestedUsers(prev => 
-          prev.map(user => 
-            user.id === userId 
-              ? { ...user, isFollowing: true }
-              : user
-          )
-        );
+        setSuggestedUsers(prev => prev.filter(u => u.id !== userId));
       }
     } catch (error) {
       console.error('Error following user:', error);
@@ -75,13 +120,7 @@ const AlumniDashboard: React.FC = () => {
     try {
       const result = await unfollowUser(userId);
       if (result.success) {
-        setSuggestedUsers(prev => 
-          prev.map(user => 
-            user.id === userId 
-              ? { ...user, isFollowing: false }
-              : user
-          )
-        );
+        // Note: We don't add the user back to suggested users when unfollowed
       }
     } catch (error) {
       console.error('Error unfollowing user:', error);
@@ -92,71 +131,131 @@ const AlumniDashboard: React.FC = () => {
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
-    if (userStr) {
-      const userObj = JSON.parse(userStr);
-      setUser(userObj);
-
-      // Fetch users for "People you may know" excluding admin and current user
-      fetch(`http://127.0.0.1:8000/api/users_list_view/?current_user_id=${userObj.id}`)
-        .then((res) => res.json())
-        .then(async (data) => {
-          if (data.success) {
-            const usersWithFollowStatus = await Promise.all(
-              data.users.map(async (user: any) => {
-                try {
-                  const followStatus = await checkFollowStatus(user.id);
-                  return {
-                    ...user,
-                    isFollowing: followStatus.is_following
-                  };
-                } catch (error) {
-                  console.error('Error checking follow status:', error);
-                  // If there's an authentication error, default to not following
-                  return {
-                    ...user,
-                    isFollowing: false
-                  };
-                }
-              })
-            );
-            setSuggestedUsers(usersWithFollowStatus);
-          }
-        })
-        .catch((error) => {
-          console.error('Error fetching users:', error);
-        });
-    } else {
+    if (!userStr) {
       navigate('/login');
+      return;
     }
+    const userObj = JSON.parse(userStr);
+    setUser(userObj);
 
-    // Mock data for posts
-    setPosts([
-      {
-        id: 1,
-        author: {
-          name: "Lorem ipsum dolor",
-          profile_pic: "https://randomuser.me/api/portraits/men/32.jpg"
-        },
-        content: "Lorem ipsum dolor sit amet. Quo asperiores enim ut veniam repudiandae eum quisquam voluptatem non dolore veritatis eos quia suscipit sed facere alias nam voluptate quia. Ut neque ipsam sed explicabo nemo ut sapiente consectetur qui omnis ducimus qui voluptatem iusto? Id enim quia quo quam consequatur sit nulla delectus aut accusamus velit est animi sint eos consequatur nemo sit facilis ipsam. Est dolores tenetur in dignissimos velit At rerum minus qui velit autern qui officia sint!",
-        timestamp: "2 d",
-        likes: 24,
-        comments: 8,
-        reposts: 3
-      },
-      {
-        id: 2,
-        author: {
-          name: "Lorem ipsum dolor",
-          profile_pic: "https://randomuser.me/api/portraits/men/45.jpg"
-        },
-        content: "Lorem ipsum dolor sit amet. Quo asperiores enim ut veniam repudiandae eum quisquam voluptatem non dolore veritatis eos quia suscipit sed facere alias nam voluptate quia. Ut neque ipsam sed explicabo nemo ut sapiente consectetur qui omnis ducimus qui voluptatem iusto? Id enim quia quo quam consequatur sit nulla delectus aut accusamus velit est animi sint eos consequatur nemo sit facilis ipsam. Est dolores tenetur in dignissimos velit At rerum minus qui velit autern qui officia sint!",
-        timestamp: "1 d",
-        likes: 18,
-        comments: 5,
-        reposts: 2
-      }
-    ]);
+    fetch(`http://127.0.0.1:8000/api/users_list_view/?current_user_id=${userObj.id}`)
+      .then((res) => res.json())
+      .then(async (data) => {
+        if (data.success) {
+          const usersWithFollowStatus = await Promise.all(
+            data.users.map(async (usr: any) => {
+              try {
+                const followStatus = await checkFollowStatus(usr.id);
+                return { ...usr, isFollowing: followStatus.is_following };
+              } catch {
+                return { ...usr, isFollowing: false };
+              }
+            })
+          );
+          const unfollowedUsers = usersWithFollowStatus.filter(user => !user.isFollowing);
+          setSuggestedUsers(unfollowedUsers);
+        }
+      })
+      .catch((error) => console.error('Error fetching users:', error));
+
+    // Fix: Ensure posts are properly fetched and displayed
+    getPosts()
+      .then((list: any[]) => {
+        setPosts(list || []);
+        // Track liked posts for current user
+        const currentUserId = currentUser?.user_id || currentUser?.id;
+        const liked: { [key: number]: boolean } = {};
+        (list || []).forEach(post => {
+          if (post.likes && Array.isArray(post.likes)) {
+            liked[post.post_id] = post.likes.some((like: any) => like.user_id === currentUserId);
+          } else if (post.liked_by_user !== undefined) {
+            liked[post.post_id] = !!post.liked_by_user;
+          }
+        });
+        setLikedPosts(liked);
+
+        // Track reposted posts for current user
+        const reposted: { [key: number]: boolean } = {};
+        (list || []).forEach(post => {
+          if (post.reposts && Array.isArray(post.reposts)) {
+            reposted[post.post_id] = post.reposts.some((repost: any) => repost.user.user_id === currentUserId);
+          }
+        });
+        setRepostedPosts(reposted);
+      })
+      .catch((error) => {
+        console.error('Error fetching posts:', error);
+        setPosts([]);
+      });
   }, [navigate]);
+
+  const handlePosted = async () => {
+    // Refresh posts from backend after a new post is created
+    try {
+      const updatedPosts = await getPosts();
+      setPosts(updatedPosts || []);
+    } catch (error) {
+      console.error('Error refreshing posts:', error);
+    }
+    setShowComposer(false);
+  };
+
+  // Ensure to pass handlePosted to PostCreate
+
+  const currentUserRaw = localStorage.getItem('user');
+  const currentUser = currentUserRaw ? JSON.parse(currentUserRaw) : null;
+  const currentId = currentUser?.user_id || currentUser?.id;
+
+  const handleCommentSubmit = async (postId: number) => {
+    if (!commentInput[postId]) return; // No comment to submit
+    try {
+        const result = await commentOnPost(postId, commentInput[postId]);
+        if (result.success) {
+            setCommentInput(prev => ({ ...prev, [postId]: '' })); // Clear input after submission
+            
+            // Refresh posts to show new comment
+            const updatedPosts = await getPosts();
+            setPosts(updatedPosts || []);
+        }
+    } catch (error) {
+        console.error('Error submitting comment:', error);
+    }
+  };
+
+  const handleLike = async (postId: number) => {
+    try {
+      await likePost(postId); // POST /api/posts/{postId}/like/
+      setLikedPosts(prev => ({ ...prev, [postId]: true }));
+      const updatedPosts = await getPosts();
+      setPosts(updatedPosts || []);
+    } catch (error) {
+      console.error('Error liking post:', error);
+    }
+  };
+
+  const handleUnlike = async (postId: number) => {
+    try {
+      await unlikePost(postId); // DELETE /api/posts/{postId}/like/
+      setLikedPosts(prev => ({ ...prev, [postId]: false }));
+      const updatedPosts = await getPosts();
+      setPosts(updatedPosts || []);
+    } catch (error) {
+      console.error('Error unliking post:', error);
+    }
+  };
+
+  const handleRepost = async (postId: number) => {
+    setRepostError(null);
+    try {
+      await repostPost(postId);
+      setRepostedPosts(prev => ({ ...prev, [postId]: true }));
+      const updatedPosts = await getPosts();
+      setPosts(updatedPosts || []);
+    } catch (error: any) {
+      // If error is 400, show message
+      setRepostError(error?.response?.data?.error || error?.message || 'Failed to repost');
+    }
+  };
 
   return (
     <div className="page-container">
@@ -166,164 +265,334 @@ const AlumniDashboard: React.FC = () => {
         handleLogout={handleLogout} 
       />
 
-      {/* Main Content */}
       <div className="main-content">
-        {/* Left Sidebar */}
         <div className="left-sidebar">
-          {/* Profile Card */}
-          <div 
-            className="profile-card"
-            onClick={() => navigate('/alumni/profile')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.02)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-          >
-            {/* Orange Header Bar */}
+          <div className="profile-card" onClick={() => navigate('/alumni/profile')} onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.02)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}>
             <div className="orange-header-bar"></div>
-            
-            {/* Profile Content */}
             <div className="profile-content">
-              <img 
-                src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo} 
-                alt="Profile" 
-                className="profile-image"
-              />
-              <div className="profile-name">
-                {user?.name }
-              </div>
-              <div className="profile-university">
-                {user?.university}
-              </div>
+              <img src={user?.profile_pic ? (String(user.profile_pic).startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo} alt="Profile" className="profile-image" />
+              <div className="profile-name">{user?.name }</div>
+              <div className="profile-university">{user?.university}</div>
             </div>
           </div>
 
-          {/* Quick Links */}
           <div className="quick-links">
             <div className="quick-link-card">
-              {/* Orange Header Bar */}
               <div className="quick-link-orange-header"></div>
-              
-              {/* Content */}
               <div className="quick-link-content">
-                <div className="quick-link-icon ccict-icon">
-                  C
-                </div>
+                <div className="quick-link-icon ccict-icon">C</div>
                 <div className="quick-link-text">CCICT</div>
               </div>
             </div>
             <div className="quick-link-card">
-              {/* Orange Header Bar */}
               <div className="quick-link-orange-header"></div>
-              
-              {/* Content */}
               <div className="quick-link-content">
-                <div className="quick-link-icon peso-icon">
-                  ✱
-                </div>
+                <div className="quick-link-icon peso-icon">✱</div>
                 <div className="quick-link-text">PESO</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Center Content */}
         <div className="center-content">
-          {/* Start a Post */}
-          <div className="post-start">
+          <div className="post-start" onClick={() => setShowComposer(true)} style={{ cursor: 'pointer' }}>
             <div className="post-start-input-container">
-              <img 
-                src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo} 
-                alt="Profile" 
-                className="post-start-profile-image"
-              />
-              <input 
-                type="text" 
-                placeholder="Start a post" 
-                className="post-start-input"
-              />
+              <img src={user?.profile_pic ? (String(user.profile_pic).startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo} alt="Profile" className="post-start-profile-image" />
+              <input type="text" placeholder="Start a post" className="post-start-input" readOnly />
             </div>
           </div>
+          {showComposer && (
+            <PostCreate
+              onPosted={handlePosted}
+              onCancel={() => setShowComposer(false)}
+              user={user ?? { name: '', profile_pic: undefined }}
+            />
+          )}
+          {posts.map((post) => {
+            const repostInfo = post.reposts && post.reposts.length > 0 ? post.reposts[0] : null;
+            const repostedBy = repostInfo ? `${repostInfo.user.f_name} ${repostInfo.user.l_name}` : null;
+            const isOwn = currentId && post.user?.user_id && Number(post.user.user_id) === Number(currentId);
+            const displayName = isOwn && user?.name ? user.name : `${post.user?.f_name || ''} ${post.user?.l_name || ''}`.trim();
+            const postUserAvatar = post.user?.profile_pic ? (String(post.user.profile_pic).startsWith('http') ? post.user.profile_pic : `http://127.0.0.1:8000${post.user.profile_pic}`) : undefined;
+            const displayAvatar = isOwn && user?.profile_pic ? (String(user.profile_pic).startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : (postUserAvatar || ctulogo);
 
-          {/* Posts Feed */}
-          {posts.map((post) => (
-            <div key={post.id} className="post-feed-card">
-              {/* Post Header */}
-              <div className="post-header">
-                <div className="post-header-left">
-                   <img 
-                    src={post.author.profile_pic ? (post.author.profile_pic.startsWith('http') ? post.author.profile_pic : `http://127.0.0.1:8000${post.author.profile_pic}`) : ctulogo} 
-                    alt="Profile" 
-                    className="post-header-profile-image"
-                  />
-                  <div>
-                    <div className="post-author-info">{post.author.name}</div>
-                    <div className="post-author-details">
-                      <span>3,000,000 Followers</span>
-                      <span>•</span>
-                      <span>{post.timestamp}</span>
-                      <span>🌐</span>
+            // If repostInfo exists, show repost card
+            if (repostInfo) {
+              const reposterAvatar = repostInfo.user.profile_pic
+                ? (String(repostInfo.user.profile_pic).startsWith('http')
+                  ? repostInfo.user.profile_pic
+                  : `http://127.0.0.1:8000${repostInfo.user.profile_pic}`)
+                : ctulogo;
+              const reposterName = `${repostInfo.user.f_name} ${repostInfo.user.l_name}`;
+              return (
+                <div key={post.post_id + '_repost'} className="post-feed-card" style={{ background: '#f5f6fa', border: '1px solid #dedede', marginBottom: 24, borderRadius: 12, padding: 0 }}>
+                  {/* Reposter info */}
+                  <div style={{ display: 'flex', alignItems: 'center', padding: '16px 16px 0 16px', gap: 12 }}>
+                    <img
+                      src={reposterAvatar}
+                      alt="Reposter"
+                      style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '2px solid #23272a' }}
+                      onError={e => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = ctulogo as unknown as string;
+                      }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 17 }}>{reposterName}</div>
+                      <div style={{ fontSize: 13, color: '#888' }}>{formatTimeAgo(repostInfo.repost_date)}</div>
+                      <div style={{ fontSize: 13, color: '#b0b3b8', marginTop: 2 }}>reposted</div>
+                    </div>
+                  </div>
+                  {/* Inner card: original post */}
+                  <div style={{ margin: 16, background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.04)', padding: 0 }}>
+                    <div className="post-header" style={{ padding: '16px 16px 0 16px' }}>
+                      <div className="post-header-left">
+                        <img 
+                          src={displayAvatar} 
+                          alt="Profile" 
+                          className="post-header-profile-image"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = ctulogo as unknown as string;
+                          }}
+                        />
+                        <div>
+                          <div className="post-author-info">{displayName || 'User'}</div>
+                          <div className="post-author-details" style={{ color: '#666', fontSize: '12px' }}>
+                            <span>{formatTimeAgo(post.created_at) || 'Unknown time'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="post-content" style={{ padding: '0 16px 8px 16px' }}>{post.post_content}</div>
+                    {post.post_image && (
+                      <div style={{ marginTop: 8, padding: '0 16px 16px 16px' }}>
+                        <img 
+                          src={
+                            post.post_image.startsWith('/media/')
+                              ? `http://127.0.0.1:8000${post.post_image}`
+                              : post.post_image
+                          }
+                          alt="post" 
+                          style={{ maxWidth: '100%', borderRadius: 8, maxHeight: '400px', objectFit: 'cover' }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            console.error('Failed to load post image:', post.post_image);
+                          }}
+                        />
+                      </div>
+                    )}
+                    {/* Repost actions (like, comment, repost) */}
+                    <div className="post-actions" style={{ display: 'flex', gap: 16, marginTop: 8, padding: '0 16px 16px 16px' }}>
+                      <button
+                        onClick={() => likedPosts[post.post_id] ? handleUnlike(post.post_id) : handleLike(post.post_id)}
+                        className="post-action-item"
+                        style={{
+                          color: likedPosts[post.post_id] ? '#e0245e' : '#555',
+                          fontWeight: likedPosts[post.post_id] ? 'bold' : 'normal',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {likedPosts[post.post_id] ? '❤️' : '🤍'} Like
+                      </button>
+                      <button
+                        onClick={() => setShowCommentInput(prev => ({ ...prev, [post.post_id]: !prev[post.post_id] }))}
+                        className="post-action-item"
+                      >
+                        💬 Comment
+                      </button>
+                      <button
+                        onClick={() => handleRepost(post.post_id)}
+                        className="post-action-item"
+                        disabled={repostedPosts[post.post_id]}
+                        style={{
+                          color: repostedPosts[post.post_id] ? '#007bff' : '#555',
+                          fontWeight: repostedPosts[post.post_id] ? 'bold' : 'normal',
+                          background: 'none',
+                          border: 'none',
+                          cursor: repostedPosts[post.post_id] ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        🔄 Repost
+                      </button>
+                    </div>
+                    {/* Do NOT show comments for original post when inside repost */}
+                    {/* Show error message if repost failed */}
+                    {repostError && (
+                      <div style={{ color: 'red', fontSize: '12px', marginTop: '4px' }}>
+                        {repostError}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            // Normal post card (not a repost)
+            return (
+              <div key={post.post_id} className="post-feed-card">
+                {/* Repost display */}
+                {repostInfo && (
+                  <div className="repost-banner" style={{ background: '#f5f5f5', padding: '6px 12px', borderRadius: '8px 8px 0 0', marginBottom: 4 }}>
+                    <span style={{ color: '#007bff', fontWeight: 500 }}>
+                      {repostedBy} reposted
+                    </span>
+                    <div style={{ fontSize: '12px', color: '#555', marginTop: 4 }}>
+                      Original by {post.user?.f_name} {post.user?.l_name}
+                    </div>
+                  </div>
+                )}
+                <div className="post-header">
+                  <div className="post-header-left">
+                    <img 
+                      src={displayAvatar} 
+                      alt="Profile" 
+                      className="post-header-profile-image"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = ctulogo as unknown as string;
+                      }}
+                    />
+                    <div>
+                      <div className="post-author-info">{displayName || 'User'}</div>
+                      <div className="post-author-details" style={{ color: '#666', fontSize: '12px' }}>
+                        <span>{formatTimeAgo(post.created_at) || 'Unknown time'}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <button className="follow-button">
-                  + Follow
-                </button>
+                <div className="post-content">{post.post_content}</div>
+                {post.post_image && (
+                  <div style={{ marginTop: 8 }}>
+                    <img 
+                      src={
+                        post.post_image.startsWith('/media/')
+                          ? `http://127.0.0.1:8000${post.post_image}`
+                          : post.post_image
+                      }
+                      alt="post" 
+                      style={{ maxWidth: '100%', borderRadius: 8, maxHeight: '400px', objectFit: 'cover' }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        console.error('Failed to load post image:', post.post_image);
+                      }}
+                    />
+                  </div>
+                )}
+                <div className="post-actions" style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                  <button
+                    onClick={() => likedPosts[post.post_id] ? handleUnlike(post.post_id) : handleLike(post.post_id)}
+                    className="post-action-item"
+                    style={{
+                      color: likedPosts[post.post_id] ? '#e0245e' : '#555',
+                      fontWeight: likedPosts[post.post_id] ? 'bold' : 'normal',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {likedPosts[post.post_id] ? '❤️' : '🤍'} Like
+                  </button>
+                  <button onClick={() => setShowCommentInput(prev => ({ ...prev, [post.post_id]: !prev[post.post_id] }))} className="post-action-item">💬 Comment</button>
+                  <button
+                    onClick={() => handleRepost(post.post_id)}
+                    className="post-action-item"
+                    disabled={repostedPosts[post.post_id]}
+                    style={{
+                      color: repostedPosts[post.post_id] ? '#007bff' : '#555',
+                      fontWeight: repostedPosts[post.post_id] ? 'bold' : 'normal',
+                      background: 'none',
+                      border: 'none',
+                      cursor: repostedPosts[post.post_id] ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    🔄 Repost
+                  </button>
+                </div>
+                {showCommentInput[post.post_id] && (
+                  <div className="comment-input-container">
+                    <input 
+                        type="text" 
+                        placeholder="Type your comment..." 
+                        value={commentInput[post.post_id] || ''} 
+                        onChange={(e) => setCommentInput(prev => ({ ...prev, [post.post_id]: e.target.value }))} 
+                    />
+                    <button onClick={() => handleCommentSubmit(post.post_id)}>➡️</button>
+                  </div>
+                )}
+                
+                {/* Display comments */}
+                {post.comments && post.comments.length > 0 && (
+                  <div className="comments-section" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #eee' }}>
+                    {(showAllComments[post.post_id] ? post.comments : post.comments.slice(0, 2)).map((comment) => (
+                      <div key={comment.comment_id} className="comment-item" style={{ display: 'flex', gap: '8px', marginBottom: '8px', padding: '8px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+                        <img 
+                          src={comment.user.profile_pic ? (String(comment.user.profile_pic).startsWith('http') ? comment.user.profile_pic : `http://127.0.0.1:8000${comment.user.profile_pic}`) : ctulogo} 
+                          alt="Profile" 
+                          className="comment-profile-image"
+                          style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = ctulogo as unknown as string;
+                          }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#333' }}>
+                            {comment.user.f_name} {comment.user.l_name}
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#555' }}>
+                            {comment.comment_content}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
+                            {formatTimeAgo(comment.date_created)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {post.comments.length > 2 && !showAllComments[post.post_id] && (
+                      <button
+                        className="view-all-comments-btn"
+                        style={{ fontSize: '12px', color: '#007bff', background: 'none', border: 'none', cursor: 'pointer', marginTop: '4px' }}
+                        onClick={() => setShowAllComments(prev => ({ ...prev, [post.post_id]: true }))}
+                      >
+                        View all comments ({post.comments.length})
+                      </button>
+                    )}
+                    {post.comments.length > 2 && showAllComments[post.post_id] && (
+                      <button
+                        className="hide-comments-btn"
+                        style={{ fontSize: '12px', color: '#007bff', background: 'none', border: 'none', cursor: 'pointer', marginTop: '4px' }}
+                        onClick={() => setShowAllComments(prev => ({ ...prev, [post.post_id]: false }))}
+                      >
+                        Hide comments
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-
-              {/* Post Content */}
-              <div className="post-content">
-                {post.content} 
-              </div>
-
-              {/* Post Actions */}
-              <div className="post-actions">
-                <span className="post-action-item">
-                  ❤️ Like
-                </span>
-                <span className="post-action-item">
-                  💬 Comment
-                </span>
-                <span className="post-action-item">
-                  🔄 Repost
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-       {/* Right Sidebar */}
-       <div className="right-sidebar">
+        <div className="right-sidebar">
           <div className="people-you-may-know-card">
             <div className="people-you-may-know-title">People you may know</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {suggestedUsers.length > 0 ? (
                 suggestedUsers.map((user) => (
-                  <div 
-                    key={user.id} 
-                    className="suggested-user-item"
-                    onClick={() => navigate(`/alumni/profile/${user.id}`)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <img
-                      src={user.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo}
-                      alt={user.name}
-                      className="suggested-user-profile-image"
-                    />
-                    <div className="suggested-user-name">
-                      {user.name} {user.batch ? `(${user.batch})` : ''}
-                    </div>
-                    <button 
-                      className={`suggested-user-follow-button ${user.isFollowing ? 'following' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent navigation when clicking follow button
-                        user.isFollowing ? handleUnfollow(user.id) : handleFollow(user.id);
-                      }}
-                      disabled={followLoading[user.id]}
-                    >
-                      {followLoading[user.id] ? '...' : user.isFollowing ? 'Unfollow' : 'Follow'}
+                  <div key={user.id} className="suggested-user-item" onClick={() => navigate(`/alumni/profile/${user.id}`)} style={{ cursor: 'pointer' }}>
+                    <img src={user.profile_pic ? (String(user.profile_pic).startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo} alt={user.name} className="suggested-user-profile-image" />
+                    <div className="suggested-user-name">{user.name} {user.batch ? `(${user.batch})` : ''}</div>
+                    <button className="suggested-user-follow-button" onClick={(e) => { e.stopPropagation(); handleFollow(user.id); }} disabled={followLoading[user.id]}>
+                      {followLoading[user.id] ? '...' : 'Follow'}
                     </button>
                   </div>
                 ))
