@@ -140,13 +140,7 @@ const PostCreate: React.FC<PostCreateProps> = ({ onPosted, onCancel, user }) => 
           </div>
 
           <div className="post-create-content">
-            <input
-              type="text"
-              placeholder="Post title (optional)"
-              value={postTitle}
-              onChange={(e) => setPostTitle(e.target.value)}
-              className="post-title-input"
-            />
+            
             
             <textarea
               placeholder="What's on your mind?"

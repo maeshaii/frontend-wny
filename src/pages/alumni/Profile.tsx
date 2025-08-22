@@ -3,9 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import AlumniTopBar from './AlumniTopBar';
 import ctulogo from '../../images/ctulogo.png';
 import './profile.css';
-import { fetchFollowers, followUser, unfollowUser, checkFollowStatus } from '../../services/api';  // Import follow functions
-import { getPosts } from '../../services/api';
-import PostCreate from './PostCreate'; // Import PostCreate component
+import { fetchFollowers, followUser, unfollowUser, checkFollowStatus } from '../../services/api';
+import { getPosts, likePost, unlikePost, commentOnPost, repostPost } from '../../services/api';
+import PostCreate from './PostCreate';
 
 function formatTimeAgo(iso?: string | null): string {
   if (!iso) return '';
@@ -32,13 +32,23 @@ interface AlumniUser {
   location?: string;
   university?: string;
   resume?: string;
-  // Add fields that might come from backend
   id?: number;
   ctu_id?: string;
   first_name?: string;
   middle_name?: string;
   last_name?: string;
   year_graduated?: string | number;
+}
+
+interface RepostItem {
+  repost_id: number;
+  repost_date: string;
+  user: {
+    user_id: number;
+    f_name: string;
+    l_name: string;
+    profile_pic?: string;
+  };
 }
 
 interface CommentItem {
@@ -59,8 +69,17 @@ interface PostItem {
   post_content: string;
   post_image?: string | null;
   created_at?: string | null;
-  user?: { user_id?: number; f_name?: string; l_name?: string; profile_pic?: string };
+  user?: { 
+    user_id?: number; 
+    f_name?: string; 
+    l_name?: string; 
+    profile_pic?: string;
+    name?: string;
+  };
   comments?: CommentItem[];
+  reposts?: RepostItem[];
+  likes?: any[];
+  liked_by_user?: boolean;
 }
 
 const AlumniProfile: React.FC = () => {
@@ -74,33 +93,35 @@ const AlumniProfile: React.FC = () => {
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
   
   const [isOwnProfile, setIsOwnProfile] = useState(true);
-
-  // Add followers state
   const [followers, setFollowers] = useState<any[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
-
-  // Posts for this profile
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [showComposer, setShowComposer] = useState(false);
-
-  // New state to control comment visibility
+  const [commentInput, setCommentInput] = useState<{ [key: number]: string }>({});
+  const [showCommentInput, setShowCommentInput] = useState<{ [key: number]: boolean }>({});
   const [showAllComments, setShowAllComments] = useState<{ [key: number]: boolean }>({});
+  const [likedPosts, setLikedPosts] = useState<{ [key: number]: boolean }>({});
+  const [repostedPosts, setRepostedPosts] = useState<{ [key: number]: boolean }>({});
+  const [repostError, setRepostError] = useState<string | null>(null);
+
+  // Get current user ID
+  const currentUserObj = JSON.parse(localStorage.getItem('user') || '{}');
+  const currentId = currentUserObj.user_id || currentUserObj.id;
 
   // Load user data based on id param or localStorage user
   useEffect(() => {
     const loadUser = async () => {
       let userId = id;
       if (!userId) {
-        // No id param, load logged-in user
         const userStr = localStorage.getItem('user');
         if (!userStr) {
           navigate('/login');
           return;
         }
-          const userObj = JSON.parse(userStr);
-          userId = userObj.user_id || userObj.id;
-          setIsOwnProfile(true);
+        const userObj = JSON.parse(userStr);
+        userId = userObj.user_id || userObj.id;
+        setIsOwnProfile(true);
       } else {
         setIsOwnProfile(false);
       }
@@ -114,10 +135,10 @@ const AlumniProfile: React.FC = () => {
           if (userId === (JSON.parse(localStorage.getItem('user') || '{}').user_id || JSON.parse(localStorage.getItem('user') || '{}').id)) {
             localStorage.setItem('user', JSON.stringify(profile.alumni));
           }
-          // Determine numeric user id being viewed
+          
           const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
           if (numericUserId !== undefined && numericUserId !== null && !isNaN(Number(numericUserId))) {
-            // Followers list for the viewed profile
+            // Followers list
             fetchFollowers(Number(numericUserId))
               .then(data => {
                 if (data.success && data.followers) {
@@ -128,13 +149,12 @@ const AlumniProfile: React.FC = () => {
               })
               .catch(() => setFollowers([]));
 
-            // Decide own vs other profile by comparing with logged-in user id
+            // Check follow status
             const currentUserObj = JSON.parse(localStorage.getItem('user') || '{}');
             const currentId = currentUserObj.user_id || currentUserObj.id;
             const viewingOwn = Number(numericUserId) === Number(currentId);
             setIsOwnProfile(viewingOwn);
 
-            // Fetch follow status only if viewing someone else's profile
             if (!viewingOwn) {
               checkFollowStatus(Number(numericUserId))
                 .then(data => {
@@ -151,8 +171,31 @@ const AlumniProfile: React.FC = () => {
             getPosts()
               .then((all: any[]) => {
                 console.log('Profile posts fetched:', all);
-                const subset = (all || []).filter(p => p.user?.user_id === Number(numericUserId));
+                const subset = (all || []).filter(p => 
+                  p.user?.user_id === Number(numericUserId) || 
+                  (p.reposts && p.reposts.some((repost: any) => repost.user.user_id === Number(numericUserId)))
+                );
                 setPosts(subset);
+                
+                // Track liked posts for current user
+                const liked: { [key: number]: boolean } = {};
+                subset.forEach(post => {
+                  if (post.likes && Array.isArray(post.likes)) {
+                    liked[post.post_id] = post.likes.some((like: any) => like.user_id === currentId);
+                  } else if (post.liked_by_user !== undefined) {
+                    liked[post.post_id] = !!post.liked_by_user;
+                  }
+                });
+                setLikedPosts(liked);
+
+                // Track reposted posts for current user
+                const reposted: { [key: number]: boolean } = {};
+                subset.forEach(post => {
+                  if (post.reposts && Array.isArray(post.reposts)) {
+                    reposted[post.post_id] = post.reposts.some((repost: any) => repost.user.user_id === currentId);
+                  }
+                });
+                setRepostedPosts(reposted);
               })
               .catch((error) => {
                 console.error('Error fetching profile posts:', error);
@@ -178,13 +221,10 @@ const AlumniProfile: React.FC = () => {
     loadUser();
   }, [id, navigate]);
 
-  // Other existing state and handlers remain unchanged...
-
 
   const [bioModalOpen, setBioModalOpen] = useState(false);
   const [bioInput, setBioInput] = useState('');
   const [bioLoading, setBioLoading] = useState(false);
-
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
@@ -230,6 +270,74 @@ const AlumniProfile: React.FC = () => {
       console.error('Error unfollowing user:', error);
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  const handleLike = async (postId: number) => {
+    try {
+      await likePost(postId);
+      setLikedPosts(prev => ({ ...prev, [postId]: true }));
+      const updatedPosts: PostItem[] = await getPosts();
+      const currentUserId = Number(id) || Number(JSON.parse(localStorage.getItem('user') || '{}').user_id || JSON.parse(localStorage.getItem('user') || '{}').id);
+      const subset = (updatedPosts || []).filter((p: PostItem) => 
+        p.user?.user_id === currentUserId || 
+        (p.reposts && p.reposts.some((repost: any) => repost.user.user_id === currentUserId))
+      );
+      setPosts(subset);
+    } catch (error) {
+      console.error('Error liking post:', error);
+    }
+  };
+
+  const handleUnlike = async (postId: number) => {
+    try {
+      await unlikePost(postId);
+      setLikedPosts(prev => ({ ...prev, [postId]: false }));
+      const updatedPosts: PostItem[] = await getPosts();
+      const currentUserId = Number(id) || Number(JSON.parse(localStorage.getItem('user') || '{}').user_id || JSON.parse(localStorage.getItem('user') || '{}').id);
+      const subset = (updatedPosts || []).filter((p: PostItem) => 
+        p.user?.user_id === currentUserId || 
+        (p.reposts && p.reposts.some((repost: any) => repost.user.user_id === currentUserId))
+      );
+      setPosts(subset);
+    } catch (error) {
+      console.error('Error unliking post:', error);
+    }
+  };
+
+  const handleCommentSubmit = async (postId: number) => {
+    if (!commentInput[postId]) return;
+    try {
+      const result = await commentOnPost(postId, commentInput[postId]);
+      if (result.success) {
+        setCommentInput(prev => ({ ...prev, [postId]: '' }));
+        const updatedPosts: PostItem[] = await getPosts();
+        const currentUserId = Number(id) || Number(JSON.parse(localStorage.getItem('user') || '{}').user_id || JSON.parse(localStorage.getItem('user') || '{}').id);
+        const subset = (updatedPosts || []).filter((p: PostItem) => 
+          p.user?.user_id === currentUserId || 
+          (p.reposts && p.reposts.some((repost: any) => repost.user.user_id === currentUserId))
+        );
+        setPosts(subset);
+      }
+    } catch (error) {
+      console.error('Error submitting comment:', error);
+    }
+  };
+
+  const handleRepost = async (postId: number) => {
+    setRepostError(null);
+    try {
+      await repostPost(postId);
+      setRepostedPosts(prev => ({ ...prev, [postId]: true }));
+      const updatedPosts: PostItem[] = await getPosts();
+      const currentUserId = Number(id) || Number(JSON.parse(localStorage.getItem('user') || '{}').user_id || JSON.parse(localStorage.getItem('user') || '{}').id);
+      const subset = (updatedPosts || []).filter((p: PostItem) => 
+        p.user?.user_id === currentUserId || 
+        (p.reposts && p.reposts.some((repost: any) => repost.user.user_id === currentUserId))
+      );
+      setPosts(subset);
+    } catch (error: any) {
+      setRepostError(error?.response?.data?.error || error?.message || 'Failed to repost');
     }
   };
 
@@ -550,7 +658,7 @@ const handleSave = async () => {
                   >
                     {followLoading ? '...' : isFollowing ? 'Unfollow' : 'Follow'}
                   </button>
-                )}
+                )}  
                 <button className="profile-message-button">Message</button>
               </div>
             </div>
@@ -585,102 +693,266 @@ const handleSave = async () => {
           )}
 
           {/* Posts List for this profile */}
-          {posts.map((p) => {
-            const profileAvatar = user?.profile_pic ? (String(user.profile_pic).startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : undefined;
-            const postUserAvatar = p.user?.profile_pic ? (String(p.user.profile_pic).startsWith('http') ? p.user.profile_pic : `http://127.0.0.1:8000${p.user.profile_pic}`) : undefined;
-            const displayAvatar = profileAvatar || postUserAvatar || ctulogo;
-            const displayName = user?.name || `${p.user?.f_name || ''} ${p.user?.l_name || ''}`.trim();
-            return (
-            <div key={p.post_id} className="profile-social-post-card">
-              <div className="profile-post-header">
-                <img 
-                  src={displayAvatar} 
-                  alt="Profile" 
-                  className="profile-post-profile-image"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.onerror = null;
-                    target.src = ctulogo as unknown as string;
-                  }}
-                />
-                <div>
-                  <div className="profile-post-user-name">{displayName}</div>
-                  <div className="profile-post-meta" style={{ color: '#666', fontSize: '12px' }}>
-                    <span>{formatTimeAgo(p.created_at) || 'Unknown time'}</span>
+          {posts.map((post) => {
+            const repostInfo = post.reposts && post.reposts.length > 0 ? post.reposts[0] : null;
+            const repostedBy = repostInfo ? `${repostInfo.user.f_name} ${repostInfo.user.l_name}` : null;
+            const isOwn = currentId && post.user?.user_id && Number(post.user.user_id) === Number(currentId);
+            const displayName = isOwn && user?.name ? user.name : `${post.user?.f_name || ''} ${post.user?.l_name || ''}`.trim();
+            const postUserAvatar = post.user?.profile_pic ? (String(post.user.profile_pic).startsWith('http') ? post.user.profile_pic : `http://127.0.0.1:8000${post.user.profile_pic}`) : undefined;
+            const displayAvatar = isOwn && user?.profile_pic ? (String(user.profile_pic).startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : (postUserAvatar || ctulogo);
+
+            // If repostInfo exists, show repost card
+            if (repostInfo) {
+              const reposterAvatar = repostInfo.user.profile_pic
+                ? (String(repostInfo.user.profile_pic).startsWith('http')
+                  ? repostInfo.user.profile_pic
+                  : `http://127.0.0.1:8000${repostInfo.user.profile_pic}`)
+                : ctulogo;
+              const reposterName = `${repostInfo.user.f_name} ${repostInfo.user.l_name}`;
+              return (
+                <div key={post.post_id + '_repost'} className="post-feed-card" style={{ background: '#f5f6fa', border: '1px solid #dedede', marginBottom: 24, borderRadius: 12, padding: 0 }}>
+                  {/* Reposter info */}
+                  <div style={{ display: 'flex', alignItems: 'center', padding: '16px 16px 0 16px', gap: 12 }}>
+                    <img
+                      src={reposterAvatar}
+                      alt="Reposter"
+                      style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '2px solid #23272a' }}
+                      onError={e => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = ctulogo as unknown as string;
+                      }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 17 }}>{reposterName}</div>
+                      <div style={{ fontSize: 13, color: '#888' }}>{formatTimeAgo(repostInfo.repost_date)}</div>
+                      <div style={{ fontSize: 13, color: '#b0b3b8', marginTop: 2 }}>reposted</div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="profile-post-content">{p.post_content}</div>
-              {p.post_image && (
-                <div style={{ marginTop: 8 }}>
-                  <img 
-                    src={p.post_image} 
-                    alt="post" 
-                    style={{ maxWidth: '100%', borderRadius: 8, maxHeight: '400px', objectFit: 'cover' }}
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      console.error('Failed to load post image:', p.post_image);
-                    }}
-                  />
-                </div>
-              )}
-              {/* Display comments (unified UI with Dashboard) */}
-              {p.comments && p.comments.length > 0 && (
-                <div className="comments-section" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #eee' }}>
-                  {(showAllComments[p.post_id] ? p.comments : p.comments.slice(0, 2)).map((comment) => (
-                    <div key={comment.comment_id} className="comment-item" style={{ display: 'flex', gap: '8px', marginBottom: '8px', padding: '8px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
-                      <img 
-                        src={comment.user.profile_pic ? (String(comment.user.profile_pic).startsWith('http') ? comment.user.profile_pic : `http://127.0.0.1:8000${comment.user.profile_pic}`) : ctulogo} 
-                        alt="Profile" 
-                        className="comment-profile-image"
-                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.onerror = null;
-                          target.src = ctulogo as unknown as string;
-                        }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#333' }}>
-                          {comment.user.f_name} {comment.user.l_name}
-                        </div>
-                        <div style={{ fontSize: '14px', color: '#555' }}>
-                          {comment.comment_content}
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
-                          {formatTimeAgo(comment.date_created)}
+                  {/* Inner card: original post */}
+                  <div style={{ margin: 16, background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.04)', padding: 0 }}>
+                    <div className="post-header" style={{ padding: '16px 16px 0 16px' }}>
+                      <div className="post-header-left">
+                        <img 
+                          src={displayAvatar} 
+                          alt="Profile" 
+                          className="post-header-profile-image"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = ctulogo as unknown as string;
+                          }}
+                        />
+                        <div>
+                          <div className="post-author-info">{displayName || 'User'}</div>
+                          <div className="post-author-details" style={{ color: '#666', fontSize: '12px' }}>
+                            <span>{formatTimeAgo(post.created_at) || 'Unknown time'}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  ))}
-                  {p.comments.length > 2 && !showAllComments[p.post_id] && (
-                    <button
-                      className="view-all-comments-btn"
-                      style={{ fontSize: '12px', color: '#007bff', background: 'none', border: 'none', cursor: 'pointer', marginTop: '4px' }}
-                      onClick={() => setShowAllComments(prev => ({ ...prev, [p.post_id]: true }))}
-                    >
-                      View all comments ({p.comments.length})
-                    </button>
-                  )}
-                  {p.comments.length > 2 && showAllComments[p.post_id] && (
-                    <button
-                      className="hide-comments-btn"
-                      style={{ fontSize: '12px', color: '#007bff', background: 'none', border: 'none', cursor: 'pointer', marginTop: '4px' }}
-                      onClick={() => setShowAllComments(prev => ({ ...prev, [p.post_id]: false }))}
-                    >
-                      Hide comments
-                    </button>
-                  )}
+                    <div className="post-content" style={{ padding: '0 16px 8px 16px' }}>{post.post_content}</div>
+                    {post.post_image && (
+                      <div style={{ marginTop: 8, padding: '0 16px 16px 16px' }}>
+                        <img 
+                          src={
+                            post.post_image.startsWith('/media/')
+                              ? `http://127.0.0.1:8000${post.post_image}`
+                              : post.post_image
+                          }
+                          alt="post" 
+                          style={{ maxWidth: '100%', borderRadius: 8, maxHeight: '400px', objectFit: 'cover' }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            console.error('Failed to load post image:', post.post_image);
+                          }}
+                        />
+                      </div>
+                    )}
+                    {/* Repost actions (like, comment, repost) */}
+                    <div className="post-actions" style={{ display: 'flex', gap: 16, marginTop: 8, padding: '0 16px 16px 16px' }}>
+                      <button
+                        onClick={() => likedPosts[post.post_id] ? handleUnlike(post.post_id) : handleLike(post.post_id)}
+                        className="post-action-item"
+                        style={{
+                          color: likedPosts[post.post_id] ? '#e0245e' : '#555',
+                          fontWeight: likedPosts[post.post_id] ? 'bold' : 'normal',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {likedPosts[post.post_id] ? '❤️' : '🤍'} Like
+                      </button>
+                      <button
+                        onClick={() => setShowCommentInput(prev => ({ ...prev, [post.post_id]: !prev[post.post_id] }))}
+                        className="post-action-item"
+                      >
+                        💬 Comment
+                      </button>
+                      <button
+                        onClick={() => handleRepost(post.post_id)}
+                        className="post-action-item"
+                        disabled={repostedPosts[post.post_id]}
+                        style={{
+                          color: repostedPosts[post.post_id] ? '#007bff' : '#555',
+                          fontWeight: repostedPosts[post.post_id] ? 'bold' : 'normal',
+                          background: 'none',
+                          border: 'none',
+                          cursor: repostedPosts[post.post_id] ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        🔄 Repost
+                      </button>
+                    </div>
+                    {/* Show error message if repost failed */}
+                    {repostError && (
+                      <div style={{ color: 'red', fontSize: '12px', marginTop: '4px' }}>
+                        {repostError}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-              <div className="profile-post-actions" style={{ display: 'flex', gap: 16, marginTop: 8 }}>
-                <span className="profile-post-action-item">❤️ Like</span>
-                <span className="profile-post-action-item">💬 Comment</span>
-                <span className="profile-post-action-item">🔄 Repost</span>
+              );
+            }
+
+            // Normal post card (not a repost)
+            return (
+              <div key={post.post_id} className="post-feed-card">
+                <div className="post-header">
+                  <div className="post-header-left">
+                    <img 
+                      src={displayAvatar} 
+                      alt="Profile" 
+                      className="post-header-profile-image"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = ctulogo as unknown as string;
+                      }}
+                    />
+                    <div>
+                      <div className="post-author-info">{displayName || 'User'}</div>
+                      <div className="post-author-details" style={{ color: '#666', fontSize: '12px' }}>
+                        <span>{formatTimeAgo(post.created_at) || 'Unknown time'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="post-content">{post.post_content}</div>
+                {post.post_image && (
+                  <div style={{ marginTop: 8 }}>
+                    <img 
+                      src={
+                        post.post_image.startsWith('/media/')
+                          ? `http://127.0.0.1:8000${post.post_image}`
+                          : post.post_image
+                      }
+                      alt="post" 
+                      style={{ maxWidth: '100%', borderRadius: 8, maxHeight: '400px', objectFit: 'cover' }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        console.error('Failed to load post image:', post.post_image);
+                      }}
+                    />
+                  </div>
+                )}
+                <div className="post-actions" style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                  <button
+                    onClick={() => likedPosts[post.post_id] ? handleUnlike(post.post_id) : handleLike(post.post_id)}
+                    className="post-action-item"
+                    style={{
+                      color: likedPosts[post.post_id] ? '#e0245e' : '#555',
+                      fontWeight: likedPosts[post.post_id] ? 'bold' : 'normal',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {likedPosts[post.post_id] ? '❤️' : '🤍'} Like
+                  </button>
+                  <button onClick={() => setShowCommentInput(prev => ({ ...prev, [post.post_id]: !prev[post.post_id] }))} className="post-action-item">💬 Comment</button>
+                  <button
+                    onClick={() => handleRepost(post.post_id)}
+                    className="post-action-item"
+                    disabled={repostedPosts[post.post_id]}
+                    style={{
+                      color: repostedPosts[post.post_id] ? '#007bff' : '#555',
+                      fontWeight: repostedPosts[post.post_id] ? 'bold' : 'normal',
+                      background: 'none',
+                      border: 'none',
+                      cursor: repostedPosts[post.post_id] ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    🔄 Repost
+                  </button>
+                </div>
+                {showCommentInput[post.post_id] && (
+                  <div className="comment-input-container">
+                    <input 
+                        type="text" 
+                        placeholder="Type your comment..." 
+                        value={commentInput[post.post_id] || ''} 
+                        onChange={(e) => setCommentInput(prev => ({ ...prev, [post.post_id]: e.target.value }))} 
+                    />
+                    <button onClick={() => handleCommentSubmit(post.post_id)}>➡️</button>
+                  </div>
+                )}
+                
+                {/* Display comments */}
+                {post.comments && post.comments.length > 0 && (
+                  <div className="comments-section" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #eee' }}>
+                    {(showAllComments[post.post_id] ? post.comments : post.comments.slice(0, 2)).map((comment) => (
+                      <div key={comment.comment_id} className="comment-item" style={{ display: 'flex', gap: '8px', marginBottom: '8px', padding: '8px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+                        <img 
+                          src={comment.user.profile_pic ? (String(comment.user.profile_pic).startsWith('http') ? comment.user.profile_pic : `http://127.0.0.1:8000${comment.user.profile_pic}`) : ctulogo} 
+                          alt="Profile" 
+                          className="comment-profile-image"
+                          style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = ctulogo as unknown as string;
+                          }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#333' }}>
+                            {comment.user.f_name} {comment.user.l_name}
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#555' }}>
+                            {comment.comment_content}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
+                            {formatTimeAgo(comment.date_created)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {post.comments.length > 2 && !showAllComments[post.post_id] && (
+                      <button
+                        className="view-all-comments-btn"
+                        style={{ fontSize: '12px', color: '#007bff', background: 'none', border: 'none', cursor: 'pointer', marginTop: '4px' }}
+                        onClick={() => setShowAllComments(prev => ({ ...prev, [post.post_id]: true }))}
+                      >
+                        View all comments ({post.comments.length})
+                      </button>
+                    )}
+                    {post.comments.length > 2 && showAllComments[post.post_id] && (
+                      <button
+                        className="hide-comments-btn"
+                        style={{ fontSize: '12px', color: '#007bff', background: 'none', border: 'none', cursor: 'pointer', marginTop: '4px' }}
+                        onClick={() => setShowAllComments(prev => ({ ...prev, [post.post_id]: false }))}
+                      >
+                        Hide comments
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          );})}
+            );
+          })}
         </div>
 
         {/* Bio Modal */}
