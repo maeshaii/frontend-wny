@@ -41,11 +41,7 @@ const App: React.FC = () => {
     console.log('Generated statistics:', statsData);
     // You can add additional logic here to handle the generated statistics
     // For example, update the current view or navigate to a detailed statistics page
-
-    // Show a success message or update the UI
-    alert(
-      `Successfully generated ${statsData.type} statistics for ${statsData.total_alumni} alumni!`
-    );
+    // No alert here; only the modal should show the alert for single-type generation
   };
 
   const handleCardClick = (year: number) => {

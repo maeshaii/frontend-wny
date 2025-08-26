@@ -122,8 +122,6 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
         setAllStats({ QPRO: qpro, CHED: ched, SUC: suc, AACUP: aacup });
         setGeneratedStats(null);
         if (onGenerate) onGenerate({ QPRO: qpro, CHED: ched, SUC: suc, AACUP: aacup });
-        // Show a proper success message for ALL
-        alert('Successfully generated all statistics for all alumni.');
         // Fetch detailed data for all
         (['QPRO', 'CHED', 'SUC', 'AACUP'] as StatsType[]).forEach(async (type) => {
           setDetailedLoading((prev) => ({ ...prev, [type]: true }));
@@ -154,7 +152,7 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
         if (onGenerate) onGenerate(stats);
         // Show a proper success message for single type
         alert(
-          `Successfully generated ${stats.type || selectedType} statistics for ${stats.total_alumni || 'selected'} alumni.`
+          `Successfully generated ${stats?.type || selectedType || 'statistics'} statistics for ${stats?.total_alumni || 'selected'} alumni.`
         );
         // Fetch detailed data for the selected type
         setDetailedLoading({ [selectedType]: true });
@@ -209,14 +207,9 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
         fill: chartColors.ched[0],
       },
       {
-        name: 'Post Graduate Degree',
-        value: stats.post_graduate_degree,
-        fill: chartColors.ched[1],
-      },
-      {
         name: 'Not Pursuing',
         value: stats.total_alumni - stats.pursuing_further_study,
-        fill: chartColors.ched[2],
+        fill: chartColors.ched[1],
       },
     ];
 
@@ -227,14 +220,9 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
         fill: chartColors.ched[0],
       },
       {
-        name: 'Post Graduate Degree',
-        value: stats.post_graduate_degree,
-        fill: chartColors.ched[1],
-      },
-      {
         name: 'Not Pursuing',
         value: stats.total_alumni - stats.pursuing_further_study,
-        fill: chartColors.ched[2],
+        fill: chartColors.ched[1],
       },
     ];
 
@@ -265,33 +253,17 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
 
   const prepareAACUPChartData = (stats: any) => {
     const barData = [
-      { name: 'Employed', value: stats.employed_count, fill: chartColors.aacup[0] },
-      { name: 'Absorbed', value: stats.absorbed_count, fill: chartColors.aacup[1] },
-      { name: 'High Position', value: stats.high_position_count, fill: chartColors.aacup[2] },
-      {
-        name: 'Others',
-        value:
-          stats.total_alumni -
-          stats.employed_count -
-          stats.absorbed_count -
-          stats.high_position_count,
-        fill: chartColors.aacup[3],
-      },
+      { name: 'Pending', value: stats.pending_count || 0, fill: '#EE82EE' },
+      { name: 'Employed', value: stats.employed_count, fill: '#662d91' },
+      { name: 'Unemployed', value: stats.unemployed_count || 0, fill: '#800080' },
+      { name: 'Absorbed', value: stats.absorbed_count, fill: '#1d1160' },
     ];
 
     const pieData = [
-      { name: 'Employed', value: stats.employed_count, fill: chartColors.aacup[0] },
-      { name: 'Absorbed', value: stats.absorbed_count, fill: chartColors.aacup[1] },
-      { name: 'High Position', value: stats.high_position_count, fill: chartColors.aacup[2] },
-      {
-        name: 'Others',
-        value:
-          stats.total_alumni -
-          stats.employed_count -
-          stats.absorbed_count -
-          stats.high_position_count,
-        fill: chartColors.aacup[3],
-      },
+      { name: 'Pending', value: stats.pending_count || 0, fill: '#EE82EE' },
+      { name: 'Employed', value: stats.employed_count, fill: '#662d91' },
+      { name: 'Unemployed', value: stats.unemployed_count || 0, fill: '#800080' },
+      { name: 'Absorbed', value: stats.absorbed_count, fill: '#1d1160' },
     ];
 
     return { barData, pieData };
@@ -565,11 +537,6 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             worksheet.getCell(`C${rowIdx}`).value =
               `${pct(stats.pursuing_further_study, stats.total_alumni)}`;
             rowIdx++;
-            worksheet.getCell(`A${rowIdx}`).value = 'Post Graduate Degree Holders';
-            worksheet.getCell(`B${rowIdx}`).value = stats.post_graduate_degree;
-            worksheet.getCell(`C${rowIdx}`).value =
-              `${pct(stats.post_graduate_degree, stats.total_alumni)}`;
-            rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Further Study Rate';
             worksheet.getCell(`B${rowIdx}`).value =
               `${pct(stats.further_study_rate, stats.total_alumni)}`;
@@ -789,11 +756,6 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.pursuing_further_study;
           worksheet.getCell(`C${rowIdx}`).value =
             `${pct(generatedStats.pursuing_further_study, generatedStats.total_alumni)}`;
-          rowIdx++;
-          worksheet.getCell(`A${rowIdx}`).value = 'Post Graduate Degree Holders';
-          worksheet.getCell(`B${rowIdx}`).value = generatedStats.post_graduate_degree;
-          worksheet.getCell(`C${rowIdx}`).value =
-            `${pct(generatedStats.post_graduate_degree, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Further Study Rate';
           worksheet.getCell(`B${rowIdx}`).value =
@@ -1049,11 +1011,6 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             {type === 'QPRO' && (
               <>
                 <tr>
-                  <td style={td}>Total Alumni</td>
-                  <td style={td}>{stats.total_alumni}</td>
-                  <td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td>
-                </tr>
-                <tr>
                   <td style={td}>Employed</td>
                   <td style={td}>{stats.employed_count}</td>
                   <td style={td}>{pct(stats.employed_count, stats.total_alumni)}</td>
@@ -1065,32 +1022,22 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
                 </tr>
                 <tr>
                   <td style={td}>Employment Rate</td>
-                  <td style={td}>{stats.employment_rate}%</td>
                   <td style={td}></td>
+                  <td style={td}>{stats.employment_rate}%</td>
+                </tr>
+                <tr>
+                  <td style={td}>Total Alumni</td>
+                  <td style={td}>{stats.total_alumni}</td>
+                  <td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td>
                 </tr>
               </>
             )}
             {type === 'CHED' && (
               <>
                 <tr>
-                  <td style={td}>Total Alumni</td>
-                  <td style={td}>{stats.total_alumni}</td>
-                  <td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td>
-                </tr>
-                <tr>
                   <td style={td}>Pursuing Further Study</td>
                   <td style={td}>{stats.pursuing_further_study}</td>
                   <td style={td}>{pct(stats.pursuing_further_study, stats.total_alumni)}</td>
-                </tr>
-                <tr>
-                  <td style={td}>Post Graduate Degree</td>
-                  <td style={td}>{stats.post_graduate_degree}</td>
-                  <td style={td}>{pct(stats.post_graduate_degree, stats.total_alumni)}</td>
-                </tr>
-                <tr>
-                  <td style={td}>Further Study Rate</td>
-                  <td style={td}>{stats.further_study_rate}%</td>
-                  <td style={td}></td>
                 </tr>
                 <tr key="ched-job-alignment">
                   <td style={td}>Job Alignment</td>
@@ -1106,15 +1053,20 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
                     {pct(Number(stats.self_employed_count) || 0, stats.total_alumni)}
                   </td>
                 </tr>
-              </>
-            )}
-            {type === 'SUC' && (
-              <>
+                <tr>
+                  <td style={td}>Further Study Rate</td>
+                  <td style={td}></td>
+                  <td style={td}>{stats.further_study_rate}%</td>
+                </tr>
                 <tr>
                   <td style={td}>Total Alumni</td>
                   <td style={td}>{stats.total_alumni}</td>
                   <td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td>
                 </tr>
+              </>
+            )}
+            {type === 'SUC' && (
+              <>
                 <tr>
                   <td style={td}>High Position</td>
                   <td style={td}>{stats.high_position_count}</td>
@@ -1128,19 +1080,19 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
                   </td>
                 </tr>
                 <tr>
-                  <td style={td}>Average Salary</td>
-                  <td style={td}>{stats.average_salary}</td>
+                  <td style={td}>High Position Rate</td>
                   <td style={td}></td>
+                  <td style={td}>{stats.high_position_rate}%</td>
                 </tr>
-              </>
-            )}
-            {type === 'AACUP' && (
-              <>
                 <tr>
                   <td style={td}>Total Alumni</td>
                   <td style={td}>{stats.total_alumni}</td>
                   <td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td>
                 </tr>
+              </>
+            )}
+            {type === 'AACUP' && (
+              <>
                 <tr>
                   <td style={td}>Employed</td>
                   <td style={td}>{stats.employed_count}</td>
@@ -1158,18 +1110,23 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
                 </tr>
                 <tr>
                   <td style={td}>Employment Rate</td>
-                  <td style={td}>{stats.employment_rate}%</td>
                   <td style={td}></td>
+                  <td style={td}>{stats.employment_rate}%</td>
                 </tr>
                 <tr>
                   <td style={td}>Absorption Rate</td>
-                  <td style={td}>{stats.absorption_rate}%</td>
                   <td style={td}></td>
+                  <td style={td}>{stats.absorption_rate}%</td>
                 </tr>
                 <tr>
                   <td style={td}>High Position Rate</td>
-                  <td style={td}>{stats.high_position_rate}%</td>
                   <td style={td}></td>
+                  <td style={td}>{stats.high_position_rate}%</td>
+                </tr>
+                <tr>
+                  <td style={td}>Total Alumni</td>
+                  <td style={td}>{stats.total_alumni}</td>
+                  <td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td>
                 </tr>
               </>
             )}
@@ -1187,59 +1144,85 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
         </button>
         <h2 style={modalTitle}>Generate Statistics</h2>
 
-        <div style={formGroup}>
-          <label style={label}>Year:</label>
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
-            style={dropdown}
-          >
-            <option value="ALL">All Years</option>
-            {availableYears.map((year) => (
-              <option key={year.year} value={year.year}>
-                {year.year} ({year.count} alumni)
-              </option>
-            ))}
-          </select>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
+          <div style={{ flex: 1 }}>
+            <label style={label}>Year:</label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              style={dropdown}
+            >
+              <option value="ALL">All Years</option>
+              {availableYears.map((year) => (
+                <option key={year.year} value={year.year}>
+                  {year.year} ({year.count} alumni)
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={label}>Course:</label>
+            <select
+              value={selectedCourse}
+              onChange={(e) => setSelectedCourse(e.target.value)}
+              style={dropdown}
+            >
+              {courseOptions.map((course) => (
+                <option key={course} value={course}>
+                  {course === 'ALL' ? 'All Courses' : course}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div style={formGroup}>
-          <label style={label}>Course:</label>
-          <select
-            value={selectedCourse}
-            onChange={(e) => setSelectedCourse(e.target.value)}
-            style={dropdown}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginBottom: 20 }}>
+          <div style={{ flex: 1 }}>
+            <label style={label}>Statistics Report:</label>
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value as StatsType)}
+              style={dropdown}
+            >
+              {typeOptions.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            style={exportButton}
+            onClick={handleExportCompleteData}
+            disabled={exporting || loading}
           >
-            {courseOptions.map((course) => (
-              <option key={course} value={course}>
-                {course === 'ALL' ? 'All Courses' : course}
-              </option>
-            ))}
-          </select>
+            Export Complete Report
+          </button>
+          <button
+            style={generateButton}
+            onClick={handleGenerate}
+            disabled={loading}
+          >
+            Generate
+          </button>
         </div>
 
-        <div style={formGroup}>
-          <label style={label}>Statistics Type:</label>
-          <select
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value as StatsType)}
-            style={dropdown}
-          >
-            {typeOptions.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <button style={cancelButton} onClick={handleClose}>
+            Cancel
+          </button>
         </div>
 
         {allStats && (
-          <div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 24,
+            marginBottom: 24,
+          }}>
             {['QPRO', 'CHED', 'SUC', 'AACUP'].map((type) =>
               allStats[type] ? (
-                <React.Fragment key={type}>
-                  {renderSummarySection(type, allStats[type])}
-                </React.Fragment>
+                <div key={type}>{renderSummarySection(type, allStats[type])}</div>
               ) : null
             )}
           </div>
@@ -1295,20 +1278,6 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             </div>
           </div>
         )}
-
-        <div style={buttonGroup}>
-          <button onClick={handleClose} style={cancelButton}>
-            Cancel
-          </button>
-          {(generatedStats || allStats) && (
-            <button onClick={handleExportCompleteData} style={exportButton} disabled={exporting}>
-              {exporting ? 'Exporting...' : 'Export Complete Report'}
-            </button>
-          )}
-          <button onClick={handleGenerate} style={generateButton} disabled={loading}>
-            {loading ? 'Generating...' : 'Generate'}
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -1404,7 +1373,7 @@ const statsGrid: React.CSSProperties = {
 
 const chartsContainer: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+  gridTemplateColumns: '1fr 1fr',
   gap: '20px',
   marginTop: '20px',
 };

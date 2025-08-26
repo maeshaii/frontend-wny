@@ -234,13 +234,15 @@ export const User: React.FC<Props> = ({ users, type, onBack }) => {
               <td
                 style={{
                   color:
-                    user.status === 'Employed'
-                      ? 'teal'
-                      : user.status === 'High Position'
-                        ? '#e6b800'
-                        : user.status === 'Absorb'
-                          ? '#0093D9'
-                          : 'orangered',
+                    user.status === 'Pending'
+                      ? '#EE82EE'
+                      : user.status === 'Employed'
+                        ? '#662d91'
+                        : user.status === 'Unemployed'
+                          ? '#800080'
+                          : user.status === 'Absorb'
+                            ? '#1d1160'
+                            : 'orangered',
                   textDecoration: 'underline',
                 }}
               >

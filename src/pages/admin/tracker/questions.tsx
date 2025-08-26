@@ -455,11 +455,16 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   // Add this function inside the Question component
   const handleSubmit = async () => {
     try {
+      console.log('🔍 Form Submit Debug - Starting form submission...');
+      
       // Create FormData for file uploads
       const formData = new FormData();
 
       // Add user_id and answers
-      if (userId) formData.append('user_id', userId);
+      if (userId) {
+        formData.append('user_id', userId);
+        console.log('🔍 Form Submit Debug - User ID:', userId);
+      }
 
       // Process answers and handle file uploads
       const processedAnswers: Record<string, any> = {};
@@ -469,6 +474,7 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
           // This is a file upload
           processedAnswers[questionId] = { type: 'file' };
           formData.append(`file_${questionId}`, answer);
+          console.log(`🔍 Form Submit Debug - File upload for question ${questionId}:`, answer.name);
         } else {
           // This is a regular answer
           processedAnswers[questionId] = answer;
@@ -476,17 +482,13 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
       }
 
       formData.append('answers', JSON.stringify(processedAnswers));
+      console.log('🔍 Form Submit Debug - Processed answers:', processedAnswers);
 
-      const res = await fetch('http://127.0.0.1:8000/api/tracker/responses/', {
-        method: 'POST',
-        body: formData, // Don't set Content-Type header, let browser set it with boundary
-      });
+      // Use the authenticated API service instead of direct fetch
+      console.log('🔍 Form Submit Debug - Calling trackerApi.submitResponse...');
+      const data = await trackerApi.submitResponse(formData);
+      console.log('🔍 Form Submit Debug - API response:', data);
 
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-
-      const data = await res.json();
       if (data.success) {
         const fileMessage =
           data.files_uploaded > 0 ? ` and ${data.files_uploaded} file(s) uploaded` : '';
@@ -496,8 +498,21 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
         alert('Submission failed: ' + (data.message || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Error submitting form:', error);
-      alert('Submission failed. Please check your connection and try again.');
+      console.error('🔍 Form Submit Debug - Error submitting form:', error);
+      
+      // Check if it's an authentication error
+      if (error && typeof error === 'object' && 'message' in error) {
+        const errorMessage = (error as any).message;
+        console.log('🔍 Form Submit Debug - Error message:', errorMessage);
+        if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+          alert('Authentication error. Please log in again to submit the form.');
+          navigate('/login');
+        } else {
+          alert('Submission failed. Please check your connection and try again.');
+        }
+      } else {
+        alert('Submission failed. Please check your connection and try again.');
+      }
     }
   };
 

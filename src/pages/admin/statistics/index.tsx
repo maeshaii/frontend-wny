@@ -26,17 +26,17 @@ type EmploymentData = {
 const courseOptions = ['ALL', 'BSIT', 'BSIS', 'BIT-CT'];
 
 const initialData: EmploymentData[] = [
-  { category: 'Employed', count: 1350 },
-  { category: 'Unemployed', count: 950 },
-  { category: 'Absorb', count: 1250 },
-  { category: 'High Position', count: 950 },
+  { category: 'Pending', count: 0 },
+  { category: 'Employed', count: 0 },
+  { category: 'Unemployed', count: 0 },
+  { category: 'Absorb', count: 0 },
 ];
 
 const barColors: Record<string, string> = {
-  Employed: '#7C97A4',
-  Unemployed: '#1F4B7A',
-  Absorb: '#A3D9DF',
-  'High Position': '#0797D8',
+  Pending: '#EE82EE',
+  Employed: '#662d91',
+  Unemployed: '#800080',
+  Absorb: '#1d1160',
 };
 
 export default function Statistics() {

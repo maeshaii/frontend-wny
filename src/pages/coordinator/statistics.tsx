@@ -14,10 +14,10 @@ import { fetchAlumniEmploymentStats } from '../../services/api';
 
 export default function Statistics() {
   const [data, setData] = useState([
-    { name: 'Employed', value: 0, fill: '#7D8B92' },
-    { name: 'Unemployed', value: 0, fill: '#1B4F72' },
-    { name: 'Absorb', value: 0, fill: '#a2d5db' },
-    { name: 'High Position', value: 0, fill: '#0093D9' },
+    { name: 'Pending', value: 0, fill: '#EE82EE' },
+    { name: 'Employed', value: 0, fill: '#662d91' },
+    { name: 'Unemployed', value: 0, fill: '#800080' },
+    { name: 'Absorb', value: 0, fill: '#1d1160' },
   ]);
   const [loading, setLoading] = useState(true);
 
@@ -27,14 +27,10 @@ export default function Statistics() {
         const response = await fetchAlumniEmploymentStats('ALL', 'ALL');
         if (response.success && response.status_counts) {
           const chartData = [
-            { name: 'Employed', value: response.status_counts.Employed || 0, fill: '#7D8B92' },
-            { name: 'Unemployed', value: response.status_counts.Unemployed || 0, fill: '#1B4F72' },
-            { name: 'Absorb', value: response.status_counts.Absorb || 0, fill: '#a2d5db' },
-            {
-              name: 'High Position',
-              value: response.status_counts['High Position'] || 0,
-              fill: '#0093D9',
-            },
+            { name: 'Pending', value: response.status_counts.Pending || 0, fill: '#EE82EE' },
+            { name: 'Employed', value: response.status_counts.Employed || 0, fill: '#662d91' },
+            { name: 'Unemployed', value: response.status_counts.Unemployed || 0, fill: '#800080' },
+            { name: 'Absorb', value: response.status_counts.Absorb || 0, fill: '#1d1160' },
           ];
           setData(chartData);
         }
