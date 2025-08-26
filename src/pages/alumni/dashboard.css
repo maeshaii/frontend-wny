@@ -46,7 +46,6 @@
   align-items: center;
 }
 
-
 /* Profile name */
 .profile-name {
   font-weight: bold;
@@ -78,7 +77,7 @@
   text-align: center;
   color: #333;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   border: 1px solid #e0e0e0;
   overflow: hidden;
   height: 100px;
@@ -118,12 +117,12 @@
 /* CCICT icon */
 .ccict-icon {
   background: #2d5016;
-  color: #90EE90;
+  color: #90ee90;
 }
 
 /* PESO icon */
 .peso-icon {
-  background: #FFD700;
+  background: #ffd700;
   color: #000080;
 }
 
@@ -134,7 +133,7 @@
   text-align: center;
   color: #333;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   border: 1px solid #e0e0e0;
   overflow: hidden;
   height: 140px;
@@ -150,7 +149,6 @@
   padding: 12px 8px;
 }
 
-
 /* Center content */
 .center-content {
   flex: 2;
@@ -164,7 +162,7 @@
   background: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   border: 1px solid #e0e0e0;
 }
 
@@ -196,7 +194,7 @@
   background: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   border: 1px solid #e0e0e0;
   margin-bottom: 16px;
 }
@@ -265,7 +263,7 @@
   background: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   border: 1px solid #e0e0e0;
 }
 

@@ -26,53 +26,61 @@ export const useTracker = (userId: string | null) => {
     message: '',
     userBatchYear: null,
     isCorrectBatch: null,
-    error: null
+    error: null,
   });
 
   const updateState = useCallback((updates: Partial<TrackerState>) => {
-    setState(prev => ({ ...prev, ...updates }));
+    setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  const redirectWithMessage = useCallback((message: string, delay: number = 3000) => {
-    updateState({
-      showMessage: true,
-      message,
-      loading: false
-    });
-    
-    setTimeout(() => {
-      navigate('/alumni/notifications');
-    }, delay);
-  }, [navigate, updateState]);
-
-  const validateBatchYear = useCallback(async (userId: string): Promise<boolean> => {
-    try {
-      const targetBatchYear = trackerUtils.getTargetBatchYear();
-      
-      const userDetails = await fetchAlumniDetails(userId);
-      
-      if (!userDetails.success || !userDetails.alumni) {
-        redirectWithMessage('Unable to verify your batch year. This tracker form is only available for specific alumni batches.');
-        return false;
-      }
-
-      const userYear = userDetails.alumni.batch || userDetails.alumni.year_graduated;
+  const redirectWithMessage = useCallback(
+    (message: string, delay: number = 3000) => {
       updateState({
-        userBatchYear: userYear,
-        isCorrectBatch: trackerUtils.validateBatchYear(userYear)
+        showMessage: true,
+        message,
+        loading: false,
       });
 
-      if (!trackerUtils.validateBatchYear(userYear)) {
-        redirectWithMessage(trackerUtils.getBatchYearMessage(userYear));
+      setTimeout(() => {
+        navigate('/alumni/notifications');
+      }, delay);
+    },
+    [navigate, updateState]
+  );
+
+  const validateBatchYear = useCallback(
+    async (userId: string): Promise<boolean> => {
+      try {
+        const targetBatchYear = trackerUtils.getTargetBatchYear();
+
+        const userDetails = await fetchAlumniDetails(userId);
+
+        if (!userDetails.success || !userDetails.alumni) {
+          redirectWithMessage(
+            'Unable to verify your batch year. This tracker form is only available for specific alumni batches.'
+          );
+          return false;
+        }
+
+        const userYear = userDetails.alumni.batch || userDetails.alumni.year_graduated;
+        updateState({
+          userBatchYear: userYear,
+          isCorrectBatch: trackerUtils.validateBatchYear(userYear),
+        });
+
+        if (!trackerUtils.validateBatchYear(userYear)) {
+          redirectWithMessage(trackerUtils.getBatchYearMessage(userYear));
+          return false;
+        }
+
+        return true;
+      } catch (error) {
+        redirectWithMessage('Error validating batch year. Please try again later.');
         return false;
       }
-
-      return true;
-    } catch (error) {
-      redirectWithMessage('Error validating batch year. Please try again later.');
-      return false;
-    }
-  }, [redirectWithMessage, updateState]);
+    },
+    [redirectWithMessage, updateState]
+  );
 
   const initializeTracker = useCallback(async () => {
     if (!userId) {
@@ -93,13 +101,13 @@ export const useTracker = (userId: string | null) => {
       // Step 3: Check form status and submission
       const [acceptingData, submissionData] = await Promise.all([
         trackerApi.getAcceptingStatus(formId),
-        trackerApi.checkSubmissionStatus(userId)
+        trackerApi.checkSubmissionStatus(userId),
       ]);
 
       updateState({
         accepting: acceptingData.accepting_responses,
         hasSubmitted: submissionData.has_submitted,
-        loading: false
+        loading: false,
       });
 
       // Handle form closed or already submitted
@@ -112,17 +120,16 @@ export const useTracker = (userId: string | null) => {
         } else if (!acceptingData.accepting_responses) {
           messageText = 'The tracker form is currently closed. Please check back later.';
         }
-        
+
         redirectWithMessage(messageText);
       }
-
     } catch (error) {
       updateState({
         loading: false,
         hasSubmitted: false,
         accepting: null,
         isCorrectBatch: false,
-        error: trackerUtils.getErrorMessage(error)
+        error: trackerUtils.getErrorMessage(error),
       });
     }
   }, [userId, validateBatchYear, redirectWithMessage, updateState]);
@@ -133,11 +140,14 @@ export const useTracker = (userId: string | null) => {
 
   // Handle redirect for cases where form is closed, already submitted, or wrong batch
   useEffect(() => {
-    if (!state.loading && (state.hasSubmitted || state.accepting === false || state.isCorrectBatch === false)) {
+    if (
+      !state.loading &&
+      (state.hasSubmitted || state.accepting === false || state.isCorrectBatch === false)
+    ) {
       const timer = setTimeout(() => {
         navigate('/alumni/notifications');
       }, 3000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [state.loading, state.hasSubmitted, state.accepting, state.isCorrectBatch, navigate]);
@@ -145,6 +155,6 @@ export const useTracker = (userId: string | null) => {
   return {
     state,
     updateState,
-    redirectWithMessage
+    redirectWithMessage,
   };
-}; 
+};

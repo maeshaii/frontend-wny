@@ -1,5 +1,5 @@
 // Tracker API service functions
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+import { api } from './api';
 
 export interface TrackerForm {
   tracker_form_id: number;
@@ -21,22 +21,32 @@ export interface ApiError {
 // Generic API request function with error handling
 async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      ...options,
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const method = (options?.method || 'GET').toUpperCase();
+    const headers = options?.headers as Record<string, string> | undefined;
+    const data = options?.body as any;
+    const config = { headers } as any;
+    if (method === 'GET') {
+      const { data: resp } = await api.get(endpoint.replace(/^\//, ''), config);
+      return resp as T;
     }
-
-    return await response.json();
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Network error occurred';
-    throw new Error(errorMessage);
+    if (method === 'POST') {
+      const { data: resp } = await api.post(endpoint.replace(/^\//, ''), data, config);
+      return resp as T;
+    }
+    if (method === 'PUT') {
+      const { data: resp } = await api.put(endpoint.replace(/^\//, ''), data, config);
+      return resp as T;
+    }
+    if (method === 'DELETE') {
+      const { data: resp } = await api.delete(endpoint.replace(/^\//, ''), config);
+      return resp as T;
+    }
+    throw new Error(`Unsupported method ${method}`);
+  } catch (error: any) {
+    const message =
+      error?.response?.data?.message ||
+      (error instanceof Error ? error.message : 'Network error occurred');
+    throw new Error(message);
   }
 }
 
@@ -46,35 +56,35 @@ export const trackerApi = {
    * Get the active tracker form
    */
   async getActiveForm(): Promise<TrackerForm> {
-    return apiRequest<TrackerForm>('/tracker/active-form/');
+    return apiRequest<TrackerForm>('tracker/active-form/');
   },
 
   /**
    * Get the accepting status for a tracker form
    */
   async getAcceptingStatus(trackerFormId: number): Promise<AcceptingStatus> {
-    return apiRequest<AcceptingStatus>(`/tracker/accepting/${trackerFormId}/`);
+    return apiRequest<AcceptingStatus>(`tracker/accepting/${trackerFormId}/`);
   },
 
   /**
    * Check if a user has already submitted the tracker form
    */
   async checkSubmissionStatus(userId: string): Promise<SubmissionStatus> {
-    return apiRequest<SubmissionStatus>(`/tracker/check-status/?user_id=${userId}`);
+    return apiRequest<SubmissionStatus>(`tracker/check-status/?user_id=${userId}`);
   },
 
   /**
    * Get tracker questions
    */
   async getQuestions(): Promise<any> {
-    return apiRequest('/tracker/questions/');
+    return apiRequest('tracker/questions/');
   },
 
   /**
    * Submit tracker response
    */
   async submitResponse(data: FormData): Promise<any> {
-    return apiRequest('/tracker/responses/', {
+    return apiRequest('tracker/responses/', {
       method: 'POST',
       body: data,
       headers: {
@@ -87,21 +97,21 @@ export const trackerApi = {
    * Get tracker responses for a specific user
    */
   async getUserResponses(userId: number): Promise<any> {
-    return apiRequest(`/tracker/user-responses/${userId}/`);
+    return apiRequest(`tracker/user-responses/${userId}/`);
   },
 
   /**
    * Get file upload statistics
    */
   async getFileStats(): Promise<any> {
-    return apiRequest('/tracker/file-stats/');
+    return apiRequest('tracker/file-stats/');
   },
 
   /**
    * Update tracker form accepting responses status
    */
   async updateAcceptingStatus(trackerFormId: number, accepting: boolean): Promise<any> {
-    return apiRequest(`/tracker/update-accepting/${trackerFormId}/`, {
+    return apiRequest(`tracker/update-accepting/${trackerFormId}/`, {
       method: 'PUT',
       body: JSON.stringify({ accepting_responses: accepting }),
     });
@@ -111,7 +121,7 @@ export const trackerApi = {
    * Add a new category
    */
   async addCategory(categoryData: any): Promise<any> {
-    return apiRequest('/tracker/add-category/', {
+    return apiRequest('tracker/add-category/', {
       method: 'POST',
       body: JSON.stringify(categoryData),
     });
@@ -121,7 +131,7 @@ export const trackerApi = {
    * Update a category
    */
   async updateCategory(categoryId: number, categoryData: any): Promise<any> {
-    return apiRequest(`/tracker/update-category/${categoryId}/`, {
+    return apiRequest(`tracker/update-category/${categoryId}/`, {
       method: 'PUT',
       body: JSON.stringify(categoryData),
     });
@@ -131,7 +141,7 @@ export const trackerApi = {
    * Delete a category
    */
   async deleteCategory(categoryId: number): Promise<any> {
-    return apiRequest(`/tracker/delete-category/${categoryId}/`, {
+    return apiRequest(`tracker/delete-category/${categoryId}/`, {
       method: 'DELETE',
     });
   },
@@ -140,7 +150,7 @@ export const trackerApi = {
    * Add a new question
    */
   async addQuestion(questionData: any): Promise<any> {
-    return apiRequest('/tracker/add-question/', {
+    return apiRequest('tracker/add-question/', {
       method: 'POST',
       body: JSON.stringify(questionData),
     });
@@ -150,7 +160,7 @@ export const trackerApi = {
    * Update a question
    */
   async updateQuestion(questionId: number, questionData: any): Promise<any> {
-    return apiRequest(`/tracker/update-question/${questionId}/`, {
+    return apiRequest(`tracker/update-question/${questionId}/`, {
       method: 'PUT',
       body: JSON.stringify(questionData),
     });
@@ -160,7 +170,7 @@ export const trackerApi = {
    * Delete a question
    */
   async deleteQuestion(questionId: number): Promise<any> {
-    return apiRequest(`/tracker/delete-question/${questionId}/`, {
+    return apiRequest(`tracker/delete-question/${questionId}/`, {
       method: 'DELETE',
     });
   },
@@ -169,7 +179,7 @@ export const trackerApi = {
    * Get tracker responses list
    */
   async getResponsesList(): Promise<any> {
-    return apiRequest('/tracker/list-responses/');
+    return apiRequest('tracker/list-responses/');
   },
 };
 
@@ -209,4 +219,4 @@ export const trackerUtils = {
   },
 };
 
-export default trackerApi; 
+export default trackerApi;

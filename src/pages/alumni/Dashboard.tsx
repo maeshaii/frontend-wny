@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchNotifications, followUser, unfollowUser, checkFollowStatus } from '../../services/api';
+import {
+  fetchNotifications,
+  followUser,
+  unfollowUser,
+  checkFollowStatus,
+} from '../../services/api';
 import AlumniTopBar from './AlumniTopBar';
 import ctulogo from '../../images/ctulogo.png';
 import './dashboard.css';
@@ -51,42 +56,34 @@ const AlumniDashboard: React.FC = () => {
   };
 
   const handleFollow = async (userId: number) => {
-    setFollowLoading(prev => ({ ...prev, [userId]: true }));
+    setFollowLoading((prev) => ({ ...prev, [userId]: true }));
     try {
       const result = await followUser(userId);
       if (result.success) {
-        setSuggestedUsers(prev => 
-          prev.map(user => 
-            user.id === userId 
-              ? { ...user, isFollowing: true }
-              : user
-          )
+        setSuggestedUsers((prev) =>
+          prev.map((user) => (user.id === userId ? { ...user, isFollowing: true } : user))
         );
       }
     } catch (error) {
       console.error('Error following user:', error);
     } finally {
-      setFollowLoading(prev => ({ ...prev, [userId]: false }));
+      setFollowLoading((prev) => ({ ...prev, [userId]: false }));
     }
   };
 
   const handleUnfollow = async (userId: number) => {
-    setFollowLoading(prev => ({ ...prev, [userId]: true }));
+    setFollowLoading((prev) => ({ ...prev, [userId]: true }));
     try {
       const result = await unfollowUser(userId);
       if (result.success) {
-        setSuggestedUsers(prev => 
-          prev.map(user => 
-            user.id === userId 
-              ? { ...user, isFollowing: false }
-              : user
-          )
+        setSuggestedUsers((prev) =>
+          prev.map((user) => (user.id === userId ? { ...user, isFollowing: false } : user))
         );
       }
     } catch (error) {
       console.error('Error unfollowing user:', error);
     } finally {
-      setFollowLoading(prev => ({ ...prev, [userId]: false }));
+      setFollowLoading((prev) => ({ ...prev, [userId]: false }));
     }
   };
 
@@ -96,7 +93,8 @@ const AlumniDashboard: React.FC = () => {
       const userObj = JSON.parse(userStr);
       setUser(userObj);
 
-      // Fetch users for "People you may know" excluding admin and current user
+      // Only fetch users for "People you may know" if admin or coordinator
+      if (userObj.account_type && (userObj.account_type.admin || userObj.account_type.coordinator)) {
       fetch(`http://127.0.0.1:8000/api/users_list_view/?current_user_id=${userObj.id}`)
         .then((res) => res.json())
         .then(async (data) => {
@@ -107,14 +105,14 @@ const AlumniDashboard: React.FC = () => {
                   const followStatus = await checkFollowStatus(user.id);
                   return {
                     ...user,
-                    isFollowing: followStatus.is_following
+                    isFollowing: followStatus.is_following,
                   };
                 } catch (error) {
                   console.error('Error checking follow status:', error);
                   // If there's an authentication error, default to not following
                   return {
                     ...user,
-                    isFollowing: false
+                    isFollowing: false,
                   };
                 }
               })
@@ -122,9 +120,10 @@ const AlumniDashboard: React.FC = () => {
             setSuggestedUsers(usersWithFollowStatus);
           }
         })
-        .catch((error) => {
-          console.error('Error fetching users:', error);
+          .catch((err) => {
+            // Optionally handle error
         });
+      }
     } else {
       navigate('/login');
     }
@@ -134,36 +133,38 @@ const AlumniDashboard: React.FC = () => {
       {
         id: 1,
         author: {
-          name: "Lorem ipsum dolor",
-          profile_pic: "https://randomuser.me/api/portraits/men/32.jpg"
+          name: 'Lorem ipsum dolor',
+          profile_pic: 'https://randomuser.me/api/portraits/men/32.jpg',
         },
-        content: "Lorem ipsum dolor sit amet. Quo asperiores enim ut veniam repudiandae eum quisquam voluptatem non dolore veritatis eos quia suscipit sed facere alias nam voluptate quia. Ut neque ipsam sed explicabo nemo ut sapiente consectetur qui omnis ducimus qui voluptatem iusto? Id enim quia quo quam consequatur sit nulla delectus aut accusamus velit est animi sint eos consequatur nemo sit facilis ipsam. Est dolores tenetur in dignissimos velit At rerum minus qui velit autern qui officia sint!",
-        timestamp: "2 d",
+        content:
+          'Lorem ipsum dolor sit amet. Quo asperiores enim ut veniam repudiandae eum quisquam voluptatem non dolore veritatis eos quia suscipit sed facere alias nam voluptate quia. Ut neque ipsam sed explicabo nemo ut sapiente consectetur qui omnis ducimus qui voluptatem iusto? Id enim quia quo quam consequatur sit nulla delectus aut accusamus velit est animi sint eos consequatur nemo sit facilis ipsam. Est dolores tenetur in dignissimos velit At rerum minus qui velit autern qui officia sint!',
+        timestamp: '2 d',
         likes: 24,
         comments: 8,
-        reposts: 3
+        reposts: 3,
       },
       {
         id: 2,
         author: {
-          name: "Lorem ipsum dolor",
-          profile_pic: "https://randomuser.me/api/portraits/men/45.jpg"
+          name: 'Lorem ipsum dolor',
+          profile_pic: 'https://randomuser.me/api/portraits/men/45.jpg',
         },
-        content: "Lorem ipsum dolor sit amet. Quo asperiores enim ut veniam repudiandae eum quisquam voluptatem non dolore veritatis eos quia suscipit sed facere alias nam voluptate quia. Ut neque ipsam sed explicabo nemo ut sapiente consectetur qui omnis ducimus qui voluptatem iusto? Id enim quia quo quam consequatur sit nulla delectus aut accusamus velit est animi sint eos consequatur nemo sit facilis ipsam. Est dolores tenetur in dignissimos velit At rerum minus qui velit autern qui officia sint!",
-        timestamp: "1 d",
+        content:
+          'Lorem ipsum dolor sit amet. Quo asperiores enim ut veniam repudiandae eum quisquam voluptatem non dolore veritatis eos quia suscipit sed facere alias nam voluptate quia. Ut neque ipsam sed explicabo nemo ut sapiente consectetur qui omnis ducimus qui voluptatem iusto? Id enim quia quo quam consequatur sit nulla delectus aut accusamus velit est animi sint eos consequatur nemo sit facilis ipsam. Est dolores tenetur in dignissimos velit At rerum minus qui velit autern qui officia sint!',
+        timestamp: '1 d',
         likes: 18,
         comments: 5,
-        reposts: 2
-      }
+        reposts: 2,
+      },
     ]);
   }, [navigate]);
 
   return (
     <div className="page-container">
-      <AlumniTopBar 
-        showProfile={showProfile} 
-        setShowProfile={setShowProfile} 
-        handleLogout={handleLogout} 
+      <AlumniTopBar
+        showProfile={showProfile}
+        setShowProfile={setShowProfile}
+        handleLogout={handleLogout}
       />
 
       {/* Main Content */}
@@ -171,7 +172,7 @@ const AlumniDashboard: React.FC = () => {
         {/* Left Sidebar */}
         <div className="left-sidebar">
           {/* Profile Card */}
-          <div 
+          <div
             className="profile-card"
             onClick={() => navigate('/alumni/profile')}
             onMouseEnter={(e) => {
@@ -183,20 +184,16 @@ const AlumniDashboard: React.FC = () => {
           >
             {/* Orange Header Bar */}
             <div className="orange-header-bar"></div>
-            
+
             {/* Profile Content */}
             <div className="profile-content">
-              <img 
-                src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo} 
-                alt="Profile" 
+              <img
+                src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo}
+                alt="Profile"
                 className="profile-image"
               />
-              <div className="profile-name">
-                {user?.name }
-              </div>
-              <div className="profile-university">
-                {user?.university}
-              </div>
+              <div className="profile-name">{user?.name}</div>
+              <div className="profile-university">{user?.university}</div>
             </div>
           </div>
 
@@ -205,24 +202,20 @@ const AlumniDashboard: React.FC = () => {
             <div className="quick-link-card">
               {/* Orange Header Bar */}
               <div className="quick-link-orange-header"></div>
-              
+
               {/* Content */}
               <div className="quick-link-content">
-                <div className="quick-link-icon ccict-icon">
-                  C
-                </div>
+                <div className="quick-link-icon ccict-icon">C</div>
                 <div className="quick-link-text">CCICT</div>
               </div>
             </div>
             <div className="quick-link-card">
               {/* Orange Header Bar */}
               <div className="quick-link-orange-header"></div>
-              
+
               {/* Content */}
               <div className="quick-link-content">
-                <div className="quick-link-icon peso-icon">
-                  ✱
-                </div>
+                <div className="quick-link-icon peso-icon">✱</div>
                 <div className="quick-link-text">PESO</div>
               </div>
             </div>
@@ -234,16 +227,12 @@ const AlumniDashboard: React.FC = () => {
           {/* Start a Post */}
           <div className="post-start">
             <div className="post-start-input-container">
-              <img 
-                src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo} 
-                alt="Profile" 
+              <img
+                src={user?.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo}
+                alt="Profile"
                 className="post-start-profile-image"
               />
-              <input 
-                type="text" 
-                placeholder="Start a post" 
-                className="post-start-input"
-              />
+              <input type="text" placeholder="Start a post" className="post-start-input" />
             </div>
           </div>
 
@@ -253,9 +242,15 @@ const AlumniDashboard: React.FC = () => {
               {/* Post Header */}
               <div className="post-header">
                 <div className="post-header-left">
-                   <img 
-                    src={post.author.profile_pic ? (post.author.profile_pic.startsWith('http') ? post.author.profile_pic : `http://127.0.0.1:8000${post.author.profile_pic}`) : ctulogo} 
-                    alt="Profile" 
+                  <img
+                    src={
+                      post.author.profile_pic
+                        ? post.author.profile_pic.startsWith('http')
+                          ? post.author.profile_pic
+                          : `http://127.0.0.1:8000${post.author.profile_pic}`
+                        : ctulogo
+                    }
+                    alt="Profile"
                     className="post-header-profile-image"
                   />
                   <div>
@@ -268,41 +263,31 @@ const AlumniDashboard: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <button className="follow-button">
-                  + Follow
-                </button>
+                <button className="follow-button">+ Follow</button>
               </div>
 
               {/* Post Content */}
-              <div className="post-content">
-                {post.content} 
-              </div>
+              <div className="post-content">{post.content}</div>
 
               {/* Post Actions */}
               <div className="post-actions">
-                <span className="post-action-item">
-                  ❤️ Like
-                </span>
-                <span className="post-action-item">
-                  💬 Comment
-                </span>
-                <span className="post-action-item">
-                  🔄 Repost
-                </span>
+                <span className="post-action-item">❤️ Like</span>
+                <span className="post-action-item">💬 Comment</span>
+                <span className="post-action-item">🔄 Repost</span>
               </div>
             </div>
           ))}
         </div>
 
-       {/* Right Sidebar */}
-       <div className="right-sidebar">
+        {/* Right Sidebar */}
+        <div className="right-sidebar">
           <div className="people-you-may-know-card">
             <div className="people-you-may-know-title">People you may know</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {suggestedUsers.length > 0 ? (
                 suggestedUsers.map((user) => (
-                  <div 
-                    key={user.id} 
+                  <div
+                    key={user.id}
                     className="suggested-user-item"
                     onClick={() => navigate(`/alumni/profile/${user.id}`)}
                     style={{ cursor: 'pointer' }}
@@ -315,7 +300,7 @@ const AlumniDashboard: React.FC = () => {
                     <div className="suggested-user-name">
                       {user.name} {user.batch ? `(${user.batch})` : ''}
                     </div>
-                    <button 
+                    <button
                       className={`suggested-user-follow-button ${user.isFollowing ? 'following' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation(); // Prevent navigation when clicking follow button

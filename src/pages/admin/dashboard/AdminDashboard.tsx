@@ -28,13 +28,41 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     setSuggestedUsers([
-      { id: 1, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/women/1.jpg" },
-      { id: 2, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/men/2.jpg" },
-      { id: 3, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/women/3.jpg" },
-      { id: 4, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/men/4.jpg" },
-      { id: 5, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/women/5.jpg" },
-      { id: 6, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/men/6.jpg" },
-      { id: 7, name: "lorem ipsum dolor", profile_pic: "https://randomuser.me/api/portraits/women/7.jpg" },
+      {
+        id: 1,
+        name: 'lorem ipsum dolor',
+        profile_pic: 'https://randomuser.me/api/portraits/women/1.jpg',
+      },
+      {
+        id: 2,
+        name: 'lorem ipsum dolor',
+        profile_pic: 'https://randomuser.me/api/portraits/men/2.jpg',
+      },
+      {
+        id: 3,
+        name: 'lorem ipsum dolor',
+        profile_pic: 'https://randomuser.me/api/portraits/women/3.jpg',
+      },
+      {
+        id: 4,
+        name: 'lorem ipsum dolor',
+        profile_pic: 'https://randomuser.me/api/portraits/men/4.jpg',
+      },
+      {
+        id: 5,
+        name: 'lorem ipsum dolor',
+        profile_pic: 'https://randomuser.me/api/portraits/women/5.jpg',
+      },
+      {
+        id: 6,
+        name: 'lorem ipsum dolor',
+        profile_pic: 'https://randomuser.me/api/portraits/men/6.jpg',
+      },
+      {
+        id: 7,
+        name: 'lorem ipsum dolor',
+        profile_pic: 'https://randomuser.me/api/portraits/women/7.jpg',
+      },
     ]);
   }, []);
 
@@ -48,7 +76,9 @@ const AdminDashboard: React.FC = () => {
         onTrackerClick={() => navigate('/tracker')}
       />
 
-      <div style={{ maxWidth: 1200, margin: '24px auto', display: 'flex', gap: 24, padding: '0 24px' }}>
+      <div
+        style={{ maxWidth: 1200, margin: '24px auto', display: 'flex', gap: 24, padding: '0 24px' }}
+      >
         {/* Left Sidebar */}
         <div style={{ flex: 1, maxWidth: 280, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Profile Card */}
@@ -87,7 +117,15 @@ const AdminDashboard: React.FC = () => {
                   marginTop: -40,
                 }}
               />
-              <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 4, color: '#333', textTransform: 'uppercase' }}>
+              <div
+                style={{
+                  fontWeight: 'bold',
+                  fontSize: 16,
+                  marginBottom: 4,
+                  color: '#333',
+                  textTransform: 'uppercase',
+                }}
+              >
                 {admin.name}
               </div>
               <div style={{ fontSize: 14, color: '#666' }}>{admin.university}</div>
@@ -137,7 +175,14 @@ const AdminDashboard: React.FC = () => {
               border: '1px solid #e0e0e0',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 12,
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <img
                   src={admin.profile_pic}
@@ -145,8 +190,18 @@ const AdminDashboard: React.FC = () => {
                   style={{ width: 40, height: 40, borderRadius: '50%' }}
                 />
                 <div>
-                  <div style={{ fontWeight: 'bold', fontSize: 14, textTransform: 'uppercase' }}>{admin.name}</div>
-                  <div style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ fontWeight: 'bold', fontSize: 14, textTransform: 'uppercase' }}>
+                    {admin.name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: '#666',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
                     <span>3,000,000 Followers</span>
                     <span>•</span>
                     <span>2 d</span>
@@ -169,13 +224,19 @@ const AdminDashboard: React.FC = () => {
               </button>
             </div>
             <div style={{ fontSize: 14, color: '#333', marginBottom: 16, lineHeight: 1.5 }}>
-              Lorem ipsum dolor sit amet. Quo asperiores enim ut veniam repudiandae eum quisquam voluptatem non dolore
-              veritatis eos quia suscipit sed facere alias nam voluptate quia.
+              Lorem ipsum dolor sit amet. Quo asperiores enim ut veniam repudiandae eum quisquam
+              voluptatem non dolore veritatis eos quia suscipit sed facere alias nam voluptate quia.
             </div>
             <div style={{ display: 'flex', gap: 24, fontSize: 13, color: '#666' }}>
-              <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>❤️ Like</span>
-              <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>💬 Comment</span>
-              <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>🔄 Repost</span>
+              <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                ❤️ Like
+              </span>
+              <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                💬 Comment
+              </span>
+              <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                🔄 Repost
+              </span>
             </div>
           </div>
         </div>
@@ -191,7 +252,9 @@ const AdminDashboard: React.FC = () => {
               border: '1px solid #e0e0e0',
             }}
           >
-            <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 16 }}>People you may know</div>
+            <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 16 }}>
+              People you may know
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {suggestedUsers.map((user) => (
                 <div key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

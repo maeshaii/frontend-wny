@@ -1,6 +1,13 @@
 // components/GenerateStatsModal.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { fetchAlumniStatistics, fetchAlumniEmploymentStats, generateSpecificStats, exportDetailedAlumniData } from '../services/api';
+import {
+  fetchAlumniEmploymentStats,
+  generateSpecificStats,
+  exportDetailedAlumniData,
+} from '../services/api';
+import { useAvailableYears } from '../hooks/useStats';
+import { AnyStats, StatsType } from '../types/stats';
+import { queryClient } from '../services/utils/queryClient';
 import {
   ResponsiveContainer,
   BarChart,
@@ -12,7 +19,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend
+  Legend,
 } from 'recharts';
 import html2canvas from 'html2canvas';
 import ExcelJS from 'exceljs';
@@ -25,7 +32,7 @@ interface Props {
 const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
   const [selectedYear, setSelectedYear] = useState('ALL');
   const [selectedCourse, setSelectedCourse] = useState('ALL');
-  const [selectedType, setSelectedType] = useState('ALL');
+  const [selectedType, setSelectedType] = useState<StatsType>('ALL');
   const [availableYears, setAvailableYears] = useState<{ year: number; count: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [generatedStats, setGeneratedStats] = useState<any>(null);
@@ -34,7 +41,7 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
   const [detailedData, setDetailedData] = useState<Record<string, any[]> | null>(null);
   const [detailedLoading, setDetailedLoading] = useState<Record<string, boolean>>({});
   const [currentChartSection, setCurrentChartSection] = useState<string>('');
-  
+
   // Safe percent helper to avoid NaN when total is 0
   const pct = (part: number, total: number) => {
     const p = Number(part) || 0;
@@ -52,7 +59,7 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
     { value: 'QPRO', label: 'QPRO Statistics' },
     { value: 'CHED', label: 'CHED Statistics' },
     { value: 'SUC', label: 'SUC Statistics' },
-    { value: 'AACUP', label: 'AACUP Statistics' }
+    { value: 'AACUP', label: 'AACUP Statistics' },
   ];
 
   // Color schemes for charts
@@ -62,21 +69,13 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
     qpro: ['#28a745', '#dc3545', '#6c757d'],
     ched: ['#17a2b8', '#6c757d', '#28a745'],
     suc: ['#1D4E89', '#6c757d', '#ffc107'],
-    aacup: ['#28a745', '#17a2b8', '#1D4E89', '#6c757d']
+    aacup: ['#28a745', '#17a2b8', '#1D4E89', '#6c757d'],
   };
 
+  const yearsQuery = useAvailableYears();
   useEffect(() => {
-    const loadYears = async () => {
-      try {
-        const data = await fetchAlumniStatistics();
-        setAvailableYears(data.years || []);
-      } catch (error) {
-        console.error('Error loading years:', error);
-        setAvailableYears([]);
-      }
-    };
-    loadYears();
-  }, []);
+    if (yearsQuery.data) setAvailableYears(yearsQuery.data);
+  }, [yearsQuery.data]);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -87,10 +86,38 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
       if (selectedType === 'ALL') {
         // Fetch all four types in parallel
         const [qpro, ched, suc, aacup] = await Promise.all([
-          generateSpecificStats(selectedYear, selectedCourse, 'QPRO'),
-          generateSpecificStats(selectedYear, selectedCourse, 'CHED'),
-          generateSpecificStats(selectedYear, selectedCourse, 'SUC'),
-          generateSpecificStats(selectedYear, selectedCourse, 'AACUP'),
+          queryClient.fetchQuery({
+            queryKey: [
+              'stats',
+              'generate',
+              { year: selectedYear, course: selectedCourse, type: 'QPRO' },
+            ],
+            queryFn: async () => generateSpecificStats(selectedYear, selectedCourse, 'QPRO'),
+          }) as Promise<AnyStats>,
+          queryClient.fetchQuery({
+            queryKey: [
+              'stats',
+              'generate',
+              { year: selectedYear, course: selectedCourse, type: 'CHED' },
+            ],
+            queryFn: async () => generateSpecificStats(selectedYear, selectedCourse, 'CHED'),
+          }) as Promise<AnyStats>,
+          queryClient.fetchQuery({
+            queryKey: [
+              'stats',
+              'generate',
+              { year: selectedYear, course: selectedCourse, type: 'SUC' },
+            ],
+            queryFn: async () => generateSpecificStats(selectedYear, selectedCourse, 'SUC'),
+          }) as Promise<AnyStats>,
+          queryClient.fetchQuery({
+            queryKey: [
+              'stats',
+              'generate',
+              { year: selectedYear, course: selectedCourse, type: 'AACUP' },
+            ],
+            queryFn: async () => generateSpecificStats(selectedYear, selectedCourse, 'AACUP'),
+          }) as Promise<AnyStats>,
         ]);
         setAllStats({ QPRO: qpro, CHED: ched, SUC: suc, AACUP: aacup });
         setGeneratedStats(null);
@@ -98,27 +125,50 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
         // Show a proper success message for ALL
         alert('Successfully generated all statistics for all alumni.');
         // Fetch detailed data for all
-        ['QPRO', 'CHED', 'SUC', 'AACUP'].forEach(async (type) => {
+        (['QPRO', 'CHED', 'SUC', 'AACUP'] as StatsType[]).forEach(async (type) => {
           setDetailedLoading((prev) => ({ ...prev, [type]: true }));
           try {
-            const res = await exportDetailedAlumniData(selectedYear, selectedCourse, type);
-            setDetailedData((prev) => ({ ...(prev || {}), [type]: res.detailed_data || [] }));
+            const res = await queryClient.fetchQuery({
+              queryKey: ['stats', 'detailed', { year: selectedYear, course: selectedCourse, type }],
+              queryFn: async () => exportDetailedAlumniData(selectedYear, selectedCourse, type),
+            });
+            setDetailedData((prev) => ({
+              ...(prev || {}),
+              [type]: (res as any)?.detailed_data || [],
+            }));
           } finally {
             setDetailedLoading((prev) => ({ ...prev, [type]: false }));
           }
         });
       } else {
-        const stats = await generateSpecificStats(selectedYear, selectedCourse, selectedType);
+        const stats = (await queryClient.fetchQuery({
+          queryKey: [
+            'stats',
+            'generate',
+            { year: selectedYear, course: selectedCourse, type: selectedType },
+          ],
+          queryFn: async () => generateSpecificStats(selectedYear, selectedCourse, selectedType),
+        })) as AnyStats;
         setGeneratedStats(stats);
         setAllStats(null);
         if (onGenerate) onGenerate(stats);
         // Show a proper success message for single type
-        alert(`Successfully generated ${stats.type || selectedType} statistics for ${stats.total_alumni || 'selected'} alumni.`);
+        alert(
+          `Successfully generated ${stats.type || selectedType} statistics for ${stats.total_alumni || 'selected'} alumni.`
+        );
         // Fetch detailed data for the selected type
         setDetailedLoading({ [selectedType]: true });
         try {
-          const res = await exportDetailedAlumniData(selectedYear, selectedCourse, selectedType);
-          setDetailedData({ [selectedType]: res.detailed_data || [] });
+          const res = await queryClient.fetchQuery({
+            queryKey: [
+              'stats',
+              'detailed',
+              { year: selectedYear, course: selectedCourse, type: selectedType },
+            ],
+            queryFn: async () =>
+              exportDetailedAlumniData(selectedYear, selectedCourse, selectedType),
+          });
+          setDetailedData({ [selectedType]: (res as any)?.detailed_data || [] });
         } finally {
           setDetailedLoading({ [selectedType]: false });
         }
@@ -140,44 +190,76 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
   const prepareQPROChartData = (stats: any) => {
     const barData = [
       { name: 'Employed', value: stats.employed_count, fill: chartColors.qpro[0] },
-      { name: 'Unemployed', value: stats.unemployed_count, fill: chartColors.qpro[1] }
+      { name: 'Unemployed', value: stats.unemployed_count, fill: chartColors.qpro[1] },
     ];
-    
+
     const pieData = [
       { name: 'Employed', value: stats.employed_count, fill: chartColors.qpro[0] },
-      { name: 'Unemployed', value: stats.unemployed_count, fill: chartColors.qpro[1] }
+      { name: 'Unemployed', value: stats.unemployed_count, fill: chartColors.qpro[1] },
     ];
-    
+
     return { barData, pieData };
   };
 
   const prepareCHEDChartData = (stats: any) => {
     const barData = [
-      { name: 'Pursuing Further Study', value: stats.pursuing_further_study, fill: chartColors.ched[0] },
-      { name: 'Post Graduate Degree', value: stats.post_graduate_degree, fill: chartColors.ched[1] },
-      { name: 'Not Pursuing', value: stats.total_alumni - stats.pursuing_further_study, fill: chartColors.ched[2] }
+      {
+        name: 'Pursuing Further Study',
+        value: stats.pursuing_further_study,
+        fill: chartColors.ched[0],
+      },
+      {
+        name: 'Post Graduate Degree',
+        value: stats.post_graduate_degree,
+        fill: chartColors.ched[1],
+      },
+      {
+        name: 'Not Pursuing',
+        value: stats.total_alumni - stats.pursuing_further_study,
+        fill: chartColors.ched[2],
+      },
     ];
-    
+
     const pieData = [
-      { name: 'Pursuing Further Study', value: stats.pursuing_further_study, fill: chartColors.ched[0] },
-      { name: 'Post Graduate Degree', value: stats.post_graduate_degree, fill: chartColors.ched[1] },
-      { name: 'Not Pursuing', value: stats.total_alumni - stats.pursuing_further_study, fill: chartColors.ched[2] }
+      {
+        name: 'Pursuing Further Study',
+        value: stats.pursuing_further_study,
+        fill: chartColors.ched[0],
+      },
+      {
+        name: 'Post Graduate Degree',
+        value: stats.post_graduate_degree,
+        fill: chartColors.ched[1],
+      },
+      {
+        name: 'Not Pursuing',
+        value: stats.total_alumni - stats.pursuing_further_study,
+        fill: chartColors.ched[2],
+      },
     ];
-    
+
     return { barData, pieData };
   };
 
   const prepareSUCChartData = (stats: any) => {
     const barData = [
       { name: 'High Position', value: stats.high_position_count, fill: chartColors.suc[0] },
-      { name: 'Other Positions', value: stats.total_alumni - stats.high_position_count, fill: chartColors.suc[1] }
+      {
+        name: 'Other Positions',
+        value: stats.total_alumni - stats.high_position_count,
+        fill: chartColors.suc[1],
+      },
     ];
-    
+
     const pieData = [
       { name: 'High Position', value: stats.high_position_count, fill: chartColors.suc[0] },
-      { name: 'Other Positions', value: stats.total_alumni - stats.high_position_count, fill: chartColors.suc[1] }
+      {
+        name: 'Other Positions',
+        value: stats.total_alumni - stats.high_position_count,
+        fill: chartColors.suc[1],
+      },
     ];
-    
+
     return { barData, pieData };
   };
 
@@ -186,16 +268,32 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
       { name: 'Employed', value: stats.employed_count, fill: chartColors.aacup[0] },
       { name: 'Absorbed', value: stats.absorbed_count, fill: chartColors.aacup[1] },
       { name: 'High Position', value: stats.high_position_count, fill: chartColors.aacup[2] },
-      { name: 'Others', value: stats.total_alumni - stats.employed_count - stats.absorbed_count - stats.high_position_count, fill: chartColors.aacup[3] }
+      {
+        name: 'Others',
+        value:
+          stats.total_alumni -
+          stats.employed_count -
+          stats.absorbed_count -
+          stats.high_position_count,
+        fill: chartColors.aacup[3],
+      },
     ];
-    
+
     const pieData = [
       { name: 'Employed', value: stats.employed_count, fill: chartColors.aacup[0] },
       { name: 'Absorbed', value: stats.absorbed_count, fill: chartColors.aacup[1] },
       { name: 'High Position', value: stats.high_position_count, fill: chartColors.aacup[2] },
-      { name: 'Others', value: stats.total_alumni - stats.employed_count - stats.absorbed_count - stats.high_position_count, fill: chartColors.aacup[3] }
+      {
+        name: 'Others',
+        value:
+          stats.total_alumni -
+          stats.employed_count -
+          stats.absorbed_count -
+          stats.high_position_count,
+        fill: chartColors.aacup[3],
+      },
     ];
-    
+
     return { barData, pieData };
   };
 
@@ -204,51 +302,54 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
     const barData = statusEntries.map(([status, count], index) => ({
       name: status,
       value: count as number,
-      fill: chartColors.primary[index % chartColors.primary.length]
+      fill: chartColors.primary[index % chartColors.primary.length],
     }));
-    
+
     const pieData = statusEntries.map(([status, count], index) => ({
       name: status,
       value: count as number,
-      fill: chartColors.primary[index % chartColors.primary.length]
+      fill: chartColors.primary[index % chartColors.primary.length],
     }));
-    
+
     return { barData, pieData };
   };
 
   // Function to generate chart images
   const generateChartImages = async () => {
     const images: { barChart?: string; pieChart?: string } = {};
-    
+
     try {
       // Generate bar chart image
       if (barChartRef.current) {
         const canvas = await html2canvas(barChartRef.current, {
           background: 'white',
           useCORS: true,
-          allowTaint: true
+          allowTaint: true,
         });
         images.barChart = canvas.toDataURL('image/png');
       }
-      
+
       // Generate pie chart image
       if (pieChartRef.current) {
         const canvas = await html2canvas(pieChartRef.current, {
           background: 'white',
           useCORS: true,
-          allowTaint: true
+          allowTaint: true,
         });
         images.pieChart = canvas.toDataURL('image/png');
       }
     } catch (error) {
       console.error('Error generating chart images:', error);
     }
-    
+
     return images;
   };
 
   // Add this helper function before handleExportCompleteData
-  const renderAndCaptureChartImages = async (sectionType: string, stats: any): Promise<{ barChart?: string; pieChart?: string }> => {
+  const renderAndCaptureChartImages = async (
+    sectionType: string,
+    stats: any
+  ): Promise<{ barChart?: string; pieChart?: string }> => {
     // Create a hidden container
     const container = document.createElement('div');
     container.style.position = 'fixed';
@@ -301,8 +402,12 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
     const { createRoot } = require('react-dom/client');
     const barRoot = createRoot(barDiv);
     barRoot.render(
-      createElement(ResponsiveContainer, { width: '100%', height: 200 },
-        createElement(BarChart, { data: chartData.barData },
+      createElement(
+        ResponsiveContainer,
+        { width: '100%', height: 200 },
+        createElement(
+          BarChart,
+          { data: chartData.barData },
           createElement(CartesianGrid, { strokeDasharray: '3 3' }),
           createElement(XAxis, { dataKey: 'name' }),
           createElement(YAxis),
@@ -313,18 +418,25 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
     );
     const pieRoot = createRoot(pieDiv);
     pieRoot.render(
-      createElement(ResponsiveContainer, { width: '100%', height: 200 },
-        createElement(PieChart, null,
-          createElement(Pie, {
-            data: chartData.pieData,
-            cx: '50%',
-            cy: '50%',
-            labelLine: false,
-            label: ({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(0)}%`,
-            outerRadius: 80,
-            fill: '#8884d8',
-            dataKey: 'value',
-          },
+      createElement(
+        ResponsiveContainer,
+        { width: '100%', height: 200 },
+        createElement(
+          PieChart,
+          null,
+          createElement(
+            Pie,
+            {
+              data: chartData.pieData,
+              cx: '50%',
+              cy: '50%',
+              labelLine: false,
+              label: ({ name, percent }: { name: string; percent: number }) =>
+                `${name} ${(percent * 100).toFixed(0)}%`,
+              outerRadius: 80,
+              fill: '#8884d8',
+              dataKey: 'value',
+            },
             chartData.pieData.map((entry: any, index: number) =>
               createElement(Cell, { key: `cell-${index}`, fill: entry.fill })
             )
@@ -336,14 +448,22 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
     );
 
     // Wait for charts to render
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     // Capture images
     const images: { barChart?: string; pieChart?: string } = {};
     try {
-      const barCanvas = await html2canvas(barDiv, { background: 'white', useCORS: true, allowTaint: true });
+      const barCanvas = await html2canvas(barDiv, {
+        background: 'white',
+        useCORS: true,
+        allowTaint: true,
+      });
       images.barChart = barCanvas.toDataURL('image/png');
-      const pieCanvas = await html2canvas(pieDiv, { background: 'white', useCORS: true, allowTaint: true });
+      const pieCanvas = await html2canvas(pieDiv, {
+        background: 'white',
+        useCORS: true,
+        allowTaint: true,
+      });
       images.pieChart = pieCanvas.toDataURL('image/png');
     } catch (e) {
       // ignore
@@ -371,7 +491,11 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           statsByType[type] = allStats[type];
         }
       } else {
-        const res = await exportDetailedAlumniData(selectedYear, selectedCourse, generatedStats.type);
+        const res = await exportDetailedAlumniData(
+          selectedYear,
+          selectedCourse,
+          generatedStats.type
+        );
         detailedDataByType[generatedStats.type] = res.detailed_data || [];
         statsByType[generatedStats.type] = generatedStats;
       }
@@ -401,7 +525,7 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           worksheet.getCell(`B${rowIdx}`).value = 'Value';
           worksheet.getCell(`C${rowIdx}`).value = 'Percentage';
           rowIdx++;
-          
+
           // Set current chart section for this type
           setCurrentChartSection(type);
           // Add summary rows for each type
@@ -416,14 +540,17 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Employed Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.employed_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.employed_count, stats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.employed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Unemployed Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.unemployed_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.unemployed_count, stats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.unemployed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Unemployment Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.unemployed_count, stats.total_alumni)}`;
+            worksheet.getCell(`B${rowIdx}`).value =
+              `${pct(stats.unemployed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Employment Success Rate';
             worksheet.getCell(`B${rowIdx}`).value = `${stats.employment_rate}%`;
@@ -435,22 +562,29 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Pursuing Further Study';
             worksheet.getCell(`B${rowIdx}`).value = stats.pursuing_further_study;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.pursuing_further_study, stats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.pursuing_further_study, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Post Graduate Degree Holders';
             worksheet.getCell(`B${rowIdx}`).value = stats.post_graduate_degree;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.post_graduate_degree, stats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.post_graduate_degree, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Further Study Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.further_study_rate, stats.total_alumni)}`;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.further_study_rate, stats.total_alumni)}`;
+            worksheet.getCell(`B${rowIdx}`).value =
+              `${pct(stats.further_study_rate, stats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.further_study_rate, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Not Pursuing Further Study';
-            worksheet.getCell(`B${rowIdx}`).value = stats.total_alumni - stats.pursuing_further_study;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.total_alumni - stats.pursuing_further_study, stats.total_alumni)}`;
+            worksheet.getCell(`B${rowIdx}`).value =
+              stats.total_alumni - stats.pursuing_further_study;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.total_alumni - stats.pursuing_further_study, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Academic Advancement Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.further_study_rate, stats.total_alumni)}`;
+            worksheet.getCell(`B${rowIdx}`).value =
+              `${pct(stats.further_study_rate, stats.total_alumni)}`;
             rowIdx++;
           } else if (stats?.type === 'SUC') {
             worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -459,14 +593,17 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'High Position Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.high_position_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.high_position_count, stats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Other Positions';
             worksheet.getCell(`B${rowIdx}`).value = stats.total_alumni - stats.high_position_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.total_alumni - stats.high_position_count, stats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.total_alumni - stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Leadership Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.high_position_count, stats.total_alumni)}`;
+            worksheet.getCell(`B${rowIdx}`).value =
+              `${pct(stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
           } else if (stats?.type === 'AACUP') {
             worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -475,28 +612,39 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Employed Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.employed_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.employed_count, stats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.employed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Absorbed Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.absorbed_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.absorbed_count, stats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.absorbed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'High Position Count';
             worksheet.getCell(`B${rowIdx}`).value = stats.high_position_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.high_position_count, stats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Others';
-            worksheet.getCell(`B${rowIdx}`).value = stats.total_alumni - stats.employed_count - stats.absorbed_count - stats.high_position_count;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(stats.total_alumni - stats.employed_count - stats.absorbed_count - stats.high_position_count, stats.total_alumni)}`;
+            worksheet.getCell(`B${rowIdx}`).value =
+              stats.total_alumni -
+              stats.employed_count -
+              stats.absorbed_count -
+              stats.high_position_count;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(stats.total_alumni - stats.employed_count - stats.absorbed_count - stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Employment Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.employed_count, stats.total_alumni)}`;
+            worksheet.getCell(`B${rowIdx}`).value =
+              `${pct(stats.employed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Absorption Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.absorbed_count, stats.total_alumni)}`;
+            worksheet.getCell(`B${rowIdx}`).value =
+              `${pct(stats.absorbed_count, stats.total_alumni)}`;
             rowIdx++;
             worksheet.getCell(`A${rowIdx}`).value = 'Leadership Rate';
-            worksheet.getCell(`B${rowIdx}`).value = `${pct(stats.high_position_count, stats.total_alumni)}`;
+            worksheet.getCell(`B${rowIdx}`).value =
+              `${pct(stats.high_position_count, stats.total_alumni)}`;
             rowIdx++;
           } else {
             worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -512,17 +660,30 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           }
           rowIdx++;
           // Generate chart images for this section using the robust method
-          const chartImagesForType: { barChart?: string; pieChart?: string } = await renderAndCaptureChartImages(type, stats);
+          const chartImagesForType: { barChart?: string; pieChart?: string } =
+            await renderAndCaptureChartImages(type, stats);
           worksheet.getCell(`A${rowIdx}`).value = '=== CHART IMAGES ===';
           rowIdx++;
           if (chartImagesForType.barChart) {
-            const barImgId = workbook.addImage({ base64: chartImagesForType.barChart, extension: 'png' });
-            worksheet.addImage(barImgId, { tl: { col: 0, row: rowIdx }, ext: { width: 500, height: 300 } });
+            const barImgId = workbook.addImage({
+              base64: chartImagesForType.barChart,
+              extension: 'png',
+            });
+            worksheet.addImage(barImgId, {
+              tl: { col: 0, row: rowIdx },
+              ext: { width: 500, height: 300 },
+            });
             rowIdx += 18; // Add more space after bar chart
           }
           if (chartImagesForType.pieChart) {
-            const pieImgId = workbook.addImage({ base64: chartImagesForType.pieChart, extension: 'png' });
-            worksheet.addImage(pieImgId, { tl: { col: 0, row: rowIdx }, ext: { width: 500, height: 300 } });
+            const pieImgId = workbook.addImage({
+              base64: chartImagesForType.pieChart,
+              extension: 'png',
+            });
+            worksheet.addImage(pieImgId, {
+              tl: { col: 0, row: rowIdx },
+              ext: { width: 500, height: 300 },
+            });
             rowIdx += 18; // Add more space after pie chart
           }
           // Add extra buffer rows to prevent overlap
@@ -534,7 +695,9 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           if (Array.isArray(rows) && rows.length > 0) {
             // Determine which columns are non-empty for at least one row
             const currentHeader = Object.keys(rows[0]);
-            const nonEmptyColumns = currentHeader.filter((key) => rows.some((row) => row[key] !== '' && row[key] !== null && row[key] !== undefined));
+            const nonEmptyColumns = currentHeader.filter((key) =>
+              rows.some((row) => row[key] !== '' && row[key] !== null && row[key] !== undefined)
+            );
             worksheet.getCell(`A${rowIdx}`).value = `${type} Detailed Alumni Data`;
             rowIdx++;
             // Only add header if different from lastHeader
@@ -570,7 +733,8 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           }
         }
       } else {
-        worksheet.getCell(`A${rowIdx}`).value = `${generatedStats?.type || 'All'} Complete Statistics Report`;
+        worksheet.getCell(`A${rowIdx}`).value =
+          `${generatedStats?.type || 'All'} Complete Statistics Report`;
         rowIdx++;
         worksheet.getCell(`A${rowIdx}`).value = `Generated Date`;
         worksheet.getCell(`B${rowIdx}`).value = new Date().toLocaleDateString();
@@ -593,22 +757,28 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           worksheet.getCell(`C${rowIdx}`).value = '100%';
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Employment Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Employed Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.employed_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Unemployed Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.unemployed_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.unemployed_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.unemployed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Unemployment Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.unemployed_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            `${pct(generatedStats.unemployed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Employment Success Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
           rowIdx++;
         } else if (generatedStats?.type === 'CHED') {
           worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -617,22 +787,29 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Pursuing Further Study';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.pursuing_further_study;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.pursuing_further_study, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.pursuing_further_study, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Post Graduate Degree Holders';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.post_graduate_degree;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.post_graduate_degree, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.post_graduate_degree, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Further Study Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.further_study_rate, generatedStats.total_alumni)}`;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.further_study_rate, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            `${pct(generatedStats.further_study_rate, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.further_study_rate, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Not Pursuing Further Study';
-          worksheet.getCell(`B${rowIdx}`).value = generatedStats.total_alumni - generatedStats.pursuing_further_study;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.total_alumni - generatedStats.pursuing_further_study, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            generatedStats.total_alumni - generatedStats.pursuing_further_study;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.total_alumni - generatedStats.pursuing_further_study, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Academic Advancement Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.further_study_rate, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            `${pct(generatedStats.further_study_rate, generatedStats.total_alumni)}`;
           rowIdx++;
         } else if (generatedStats?.type === 'SUC') {
           worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -641,14 +818,18 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'High Position Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.high_position_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Other Positions';
-          worksheet.getCell(`B${rowIdx}`).value = generatedStats.total_alumni - generatedStats.high_position_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.total_alumni - generatedStats.high_position_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            generatedStats.total_alumni - generatedStats.high_position_count;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.total_alumni - generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Leadership Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
         } else if (generatedStats?.type === 'AACUP') {
           worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -657,28 +838,39 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Employed Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.employed_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Absorbed Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.absorbed_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.absorbed_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.absorbed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'High Position Count';
           worksheet.getCell(`B${rowIdx}`).value = generatedStats.high_position_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Others';
-          worksheet.getCell(`B${rowIdx}`).value = generatedStats.total_alumni - generatedStats.employed_count - generatedStats.absorbed_count - generatedStats.high_position_count;
-          worksheet.getCell(`C${rowIdx}`).value = `${pct(generatedStats.total_alumni - generatedStats.employed_count - generatedStats.absorbed_count - generatedStats.high_position_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            generatedStats.total_alumni -
+            generatedStats.employed_count -
+            generatedStats.absorbed_count -
+            generatedStats.high_position_count;
+          worksheet.getCell(`C${rowIdx}`).value =
+            `${pct(generatedStats.total_alumni - generatedStats.employed_count - generatedStats.absorbed_count - generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Employment Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            `${pct(generatedStats.employed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Absorption Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.absorbed_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            `${pct(generatedStats.absorbed_count, generatedStats.total_alumni)}`;
           rowIdx++;
           worksheet.getCell(`A${rowIdx}`).value = 'Leadership Rate';
-          worksheet.getCell(`B${rowIdx}`).value = `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
+          worksheet.getCell(`B${rowIdx}`).value =
+            `${pct(generatedStats.high_position_count, generatedStats.total_alumni)}`;
           rowIdx++;
         } else {
           worksheet.getCell(`A${rowIdx}`).value = 'Total Alumni';
@@ -688,13 +880,15 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           Object.entries(generatedStats.status_counts || {}).forEach(([status, count]) => {
             worksheet.getCell(`A${rowIdx}`).value = status;
             worksheet.getCell(`B${rowIdx}`).value = count as number;
-            worksheet.getCell(`C${rowIdx}`).value = `${pct(count as number, generatedStats.total_alumni)}`;
+            worksheet.getCell(`C${rowIdx}`).value =
+              `${pct(count as number, generatedStats.total_alumni)}`;
             rowIdx++;
           });
         }
         rowIdx++;
         // Generate chart images for this section using the robust method
-        const chartImages: { barChart?: string; pieChart?: string } = await renderAndCaptureChartImages(generatedStats.type, generatedStats);
+        const chartImages: { barChart?: string; pieChart?: string } =
+          await renderAndCaptureChartImages(generatedStats.type, generatedStats);
         worksheet.getCell(`A${rowIdx}`).value = '=== CHART IMAGES ===';
         rowIdx++;
         // Embed bar chart image
@@ -730,7 +924,9 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
         if (Array.isArray(rows) && rows.length > 0) {
           // Determine which columns are non-empty for at least one row
           const currentHeader = Object.keys(rows[0]);
-          const nonEmptyColumns = currentHeader.filter((key) => rows.some((row) => row[key] !== '' && row[key] !== null && row[key] !== undefined));
+          const nonEmptyColumns = currentHeader.filter((key) =>
+            rows.some((row) => row[key] !== '' && row[key] !== null && row[key] !== undefined)
+          );
           worksheet.getCell(`A${rowIdx}`).value = `${generatedStats.type} Detailed Alumni Data`;
           rowIdx++;
           // Only add header if different from lastHeader
@@ -768,10 +964,12 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
 
       // Download the Excel file
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `${allStats ? 'All' : (generatedStats?.type || 'All')}_Complete_Report_${selectedYear}_${selectedCourse}.xlsx`;
+      link.download = `${allStats ? 'All' : generatedStats?.type || 'All'}_Complete_Report_${selectedYear}_${selectedCourse}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -787,7 +985,7 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
   // Get chart data based on stats type
   const getChartData = () => {
     if (!generatedStats && !allStats) return null;
-    
+
     // If we have a current chart section and allStats, use that
     if (currentChartSection && allStats && allStats[currentChartSection]) {
       const stats = allStats[currentChartSection];
@@ -804,10 +1002,10 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           return null;
       }
     }
-    
+
     // Otherwise use generatedStats
     if (!generatedStats) return null;
-    
+
     switch (generatedStats.type) {
       case 'QPRO':
         return prepareQPROChartData(generatedStats);
@@ -827,7 +1025,15 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
   // Helper to render a section (summary only for modal)
   const renderSummarySection = (type: string, stats: any) => {
     return (
-      <div style={{ marginBottom: 32, padding: 16, background: '#f8f9fa', borderRadius: 8, border: '1px solid #e9ecef' }}>
+      <div
+        style={{
+          marginBottom: 32,
+          padding: 16,
+          background: '#f8f9fa',
+          borderRadius: 8,
+          border: '1px solid #e9ecef',
+        }}
+      >
         <h3 style={{ color: '#1D4E89', marginBottom: 12 }}>{type} Statistics</h3>
         {/* Summary Table */}
         <table style={{ width: '100%', marginBottom: 16, borderCollapse: 'collapse' }}>
@@ -842,39 +1048,129 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             {/* Render summary rows based on type */}
             {type === 'QPRO' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>Employed</td><td style={td}>{stats.employed_count}</td><td style={td}>{pct(stats.employed_count, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>Unemployed</td><td style={td}>{stats.unemployed_count}</td><td style={td}>{pct(stats.unemployed_count, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>Employment Rate</td><td style={td}>{stats.employment_rate}%</td><td style={td}></td></tr>
+                <tr>
+                  <td style={td}>Total Alumni</td>
+                  <td style={td}>{stats.total_alumni}</td>
+                  <td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>Employed</td>
+                  <td style={td}>{stats.employed_count}</td>
+                  <td style={td}>{pct(stats.employed_count, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>Unemployed</td>
+                  <td style={td}>{stats.unemployed_count}</td>
+                  <td style={td}>{pct(stats.unemployed_count, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>Employment Rate</td>
+                  <td style={td}>{stats.employment_rate}%</td>
+                  <td style={td}></td>
+                </tr>
               </>
             )}
             {type === 'CHED' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>Pursuing Further Study</td><td style={td}>{stats.pursuing_further_study}</td><td style={td}>{pct(stats.pursuing_further_study, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>Post Graduate Degree</td><td style={td}>{stats.post_graduate_degree}</td><td style={td}>{pct(stats.post_graduate_degree, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>Further Study Rate</td><td style={td}>{stats.further_study_rate}%</td><td style={td}></td></tr>
-                <tr key="ched-job-alignment"><td style={td}>Job Alignment</td><td style={td}>{Number(stats.job_aligned_count) || 0}</td><td style={td}>{pct(Number(stats.job_aligned_count) || 0, stats.total_alumni)}</td></tr>
-                <tr key="ched-self-employed"><td style={td}>Self-Employed</td><td style={td}>{Number(stats.self_employed_count) || 0}</td><td style={td}>{pct(Number(stats.self_employed_count) || 0, stats.total_alumni)}</td></tr>
+                <tr>
+                  <td style={td}>Total Alumni</td>
+                  <td style={td}>{stats.total_alumni}</td>
+                  <td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>Pursuing Further Study</td>
+                  <td style={td}>{stats.pursuing_further_study}</td>
+                  <td style={td}>{pct(stats.pursuing_further_study, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>Post Graduate Degree</td>
+                  <td style={td}>{stats.post_graduate_degree}</td>
+                  <td style={td}>{pct(stats.post_graduate_degree, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>Further Study Rate</td>
+                  <td style={td}>{stats.further_study_rate}%</td>
+                  <td style={td}></td>
+                </tr>
+                <tr key="ched-job-alignment">
+                  <td style={td}>Job Alignment</td>
+                  <td style={td}>{Number(stats.job_aligned_count) || 0}</td>
+                  <td style={td}>
+                    {pct(Number(stats.job_aligned_count) || 0, stats.total_alumni)}
+                  </td>
+                </tr>
+                <tr key="ched-self-employed">
+                  <td style={td}>Self-Employed</td>
+                  <td style={td}>{Number(stats.self_employed_count) || 0}</td>
+                  <td style={td}>
+                    {pct(Number(stats.self_employed_count) || 0, stats.total_alumni)}
+                  </td>
+                </tr>
               </>
             )}
             {type === 'SUC' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>High Position</td><td style={td}>{stats.high_position_count}</td><td style={td}>{pct(stats.high_position_count, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>Other Positions</td><td style={td}>{stats.total_alumni - stats.high_position_count}</td><td style={td}>{pct(stats.total_alumni - stats.high_position_count, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>Average Salary</td><td style={td}>{stats.average_salary}</td><td style={td}></td></tr>
+                <tr>
+                  <td style={td}>Total Alumni</td>
+                  <td style={td}>{stats.total_alumni}</td>
+                  <td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>High Position</td>
+                  <td style={td}>{stats.high_position_count}</td>
+                  <td style={td}>{pct(stats.high_position_count, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>Other Positions</td>
+                  <td style={td}>{stats.total_alumni - stats.high_position_count}</td>
+                  <td style={td}>
+                    {pct(stats.total_alumni - stats.high_position_count, stats.total_alumni)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={td}>Average Salary</td>
+                  <td style={td}>{stats.average_salary}</td>
+                  <td style={td}></td>
+                </tr>
               </>
             )}
             {type === 'AACUP' && (
               <>
-                <tr><td style={td}>Total Alumni</td><td style={td}>{stats.total_alumni}</td><td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>Employed</td><td style={td}>{stats.employed_count}</td><td style={td}>{pct(stats.employed_count, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>Absorbed</td><td style={td}>{stats.absorbed_count}</td><td style={td}>{pct(stats.absorbed_count, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>High Position</td><td style={td}>{stats.high_position_count}</td><td style={td}>{pct(stats.high_position_count, stats.total_alumni)}</td></tr>
-                <tr><td style={td}>Employment Rate</td><td style={td}>{stats.employment_rate}%</td><td style={td}></td></tr>
-                <tr><td style={td}>Absorption Rate</td><td style={td}>{stats.absorption_rate}%</td><td style={td}></td></tr>
-                <tr><td style={td}>High Position Rate</td><td style={td}>{stats.high_position_rate}%</td><td style={td}></td></tr>
+                <tr>
+                  <td style={td}>Total Alumni</td>
+                  <td style={td}>{stats.total_alumni}</td>
+                  <td style={td}>{pct(stats.total_alumni, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>Employed</td>
+                  <td style={td}>{stats.employed_count}</td>
+                  <td style={td}>{pct(stats.employed_count, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>Absorbed</td>
+                  <td style={td}>{stats.absorbed_count}</td>
+                  <td style={td}>{pct(stats.absorbed_count, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>High Position</td>
+                  <td style={td}>{stats.high_position_count}</td>
+                  <td style={td}>{pct(stats.high_position_count, stats.total_alumni)}</td>
+                </tr>
+                <tr>
+                  <td style={td}>Employment Rate</td>
+                  <td style={td}>{stats.employment_rate}%</td>
+                  <td style={td}></td>
+                </tr>
+                <tr>
+                  <td style={td}>Absorption Rate</td>
+                  <td style={td}>{stats.absorption_rate}%</td>
+                  <td style={td}></td>
+                </tr>
+                <tr>
+                  <td style={td}>High Position Rate</td>
+                  <td style={td}>{stats.high_position_rate}%</td>
+                  <td style={td}></td>
+                </tr>
               </>
             )}
           </tbody>
@@ -886,18 +1182,20 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
   return (
     <div style={modalOverlay} onClick={handleClose}>
       <div style={modalContent} onClick={(e) => e.stopPropagation()}>
-        <button style={closeButton} onClick={handleClose}>&times;</button>
+        <button style={closeButton} onClick={handleClose}>
+          &times;
+        </button>
         <h2 style={modalTitle}>Generate Statistics</h2>
-        
+
         <div style={formGroup}>
           <label style={label}>Year:</label>
-          <select 
-            value={selectedYear} 
+          <select
+            value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
             style={dropdown}
           >
             <option value="ALL">All Years</option>
-            {availableYears.map(year => (
+            {availableYears.map((year) => (
               <option key={year.year} value={year.year}>
                 {year.year} ({year.count} alumni)
               </option>
@@ -907,12 +1205,12 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
 
         <div style={formGroup}>
           <label style={label}>Course:</label>
-          <select 
-            value={selectedCourse} 
+          <select
+            value={selectedCourse}
             onChange={(e) => setSelectedCourse(e.target.value)}
             style={dropdown}
           >
-            {courseOptions.map(course => (
+            {courseOptions.map((course) => (
               <option key={course} value={course}>
                 {course === 'ALL' ? 'All Courses' : course}
               </option>
@@ -922,12 +1220,12 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
 
         <div style={formGroup}>
           <label style={label}>Statistics Type:</label>
-          <select 
-            value={selectedType} 
-            onChange={(e) => setSelectedType(e.target.value)}
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value as StatsType)}
             style={dropdown}
           >
-            {typeOptions.map(type => (
+            {typeOptions.map((type) => (
               <option key={type.value} value={type.value}>
                 {type.label}
               </option>
@@ -946,14 +1244,15 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
             )}
           </div>
         )}
-        {generatedStats && !allStats && (
-          renderSummarySection(generatedStats.type, generatedStats)
-        )}
+        {generatedStats && !allStats && renderSummarySection(generatedStats.type, generatedStats)}
 
         {/* Hidden chart containers for image generation */}
         {chartData && (
           <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-            <div ref={barChartRef} style={{ width: '400px', height: '300px', backgroundColor: 'white', padding: '20px' }}>
+            <div
+              ref={barChartRef}
+              style={{ width: '400px', height: '300px', backgroundColor: 'white', padding: '20px' }}
+            >
               <h4>Bar Chart</h4>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={chartData.barData}>
@@ -965,8 +1264,11 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            
-            <div ref={pieChartRef} style={{ width: '400px', height: '300px', backgroundColor: 'white', padding: '20px' }}>
+
+            <div
+              ref={pieChartRef}
+              style={{ width: '400px', height: '300px', backgroundColor: 'white', padding: '20px' }}
+            >
               <h4>Pie Chart</h4>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
@@ -975,7 +1277,9 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }: { name: string; percent: number }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
+                    }
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -993,26 +1297,15 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
         )}
 
         <div style={buttonGroup}>
-          <button 
-            onClick={handleClose} 
-            style={cancelButton}
-          >
+          <button onClick={handleClose} style={cancelButton}>
             Cancel
           </button>
           {(generatedStats || allStats) && (
-            <button 
-              onClick={handleExportCompleteData} 
-              style={exportButton}
-              disabled={exporting}
-            >
+            <button onClick={handleExportCompleteData} style={exportButton} disabled={exporting}>
               {exporting ? 'Exporting...' : 'Export Complete Report'}
             </button>
           )}
-          <button 
-            onClick={handleGenerate} 
-            style={generateButton}
-            disabled={loading}
-          >
+          <button onClick={handleGenerate} style={generateButton} disabled={loading}>
             {loading ? 'Generating...' : 'Generate'}
           </button>
         </div>
@@ -1031,7 +1324,7 @@ const modalOverlay: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 1000
+  zIndex: 1000,
 };
 
 const modalContent: React.CSSProperties = {
@@ -1056,7 +1349,7 @@ const closeButton: React.CSSProperties = {
   fontWeight: 'bold',
   color: '#666',
   cursor: 'pointer',
-  lineHeight: '1'
+  lineHeight: '1',
 };
 
 const modalTitle: React.CSSProperties = {
@@ -1064,11 +1357,11 @@ const modalTitle: React.CSSProperties = {
   fontWeight: 'bold',
   textAlign: 'center',
   marginBottom: '25px',
-  color: '#1D4E89'
+  color: '#1D4E89',
 };
 
 const formGroup: React.CSSProperties = {
-  marginBottom: '20px'
+  marginBottom: '20px',
 };
 
 const label: React.CSSProperties = {
@@ -1076,7 +1369,7 @@ const label: React.CSSProperties = {
   marginBottom: '8px',
   fontWeight: '600',
   color: '#333',
-  fontSize: '14px'
+  fontSize: '14px',
 };
 
 const dropdown: React.CSSProperties = {
@@ -1085,7 +1378,7 @@ const dropdown: React.CSSProperties = {
   borderRadius: '8px',
   border: '1px solid #ddd',
   fontSize: '14px',
-  backgroundColor: 'white'
+  backgroundColor: 'white',
 };
 
 const statsPreview: React.CSSProperties = {
@@ -1093,34 +1386,34 @@ const statsPreview: React.CSSProperties = {
   padding: '15px',
   backgroundColor: '#f8f9fa',
   borderRadius: '8px',
-  border: '1px solid #e9ecef'
+  border: '1px solid #e9ecef',
 };
 
 const statsTitle: React.CSSProperties = {
   fontSize: '16px',
   fontWeight: '600',
   marginBottom: '15px',
-  color: '#333'
+  color: '#333',
 };
 
 const statsGrid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-  gap: '10px'
+  gap: '10px',
 };
 
 const chartsContainer: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
   gap: '20px',
-  marginTop: '20px'
+  marginTop: '20px',
 };
 
 const chartSection: React.CSSProperties = {
   backgroundColor: 'white',
   padding: '15px',
   borderRadius: '8px',
-  border: '1px solid #e9ecef'
+  border: '1px solid #e9ecef',
 };
 
 const chartTitle: React.CSSProperties = {
@@ -1128,12 +1421,12 @@ const chartTitle: React.CSSProperties = {
   fontWeight: '600',
   marginBottom: '10px',
   color: '#333',
-  textAlign: 'center'
+  textAlign: 'center',
 };
 
 const chartWrapper: React.CSSProperties = {
   width: '100%',
-  height: '200px'
+  height: '200px',
 };
 
 const statCard: React.CSSProperties = {
@@ -1141,26 +1434,26 @@ const statCard: React.CSSProperties = {
   padding: '12px',
   borderRadius: '6px',
   textAlign: 'center',
-  border: '1px solid #dee2e6'
+  border: '1px solid #dee2e6',
 };
 
 const statLabel: React.CSSProperties = {
   fontSize: '12px',
   color: '#666',
-  marginBottom: '4px'
+  marginBottom: '4px',
 };
 
 const statValue: React.CSSProperties = {
   fontSize: '18px',
   fontWeight: 'bold',
-  color: '#1D4E89'
+  color: '#1D4E89',
 };
 
 const buttonGroup: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'flex-end',
   gap: '12px',
-  marginTop: '25px'
+  marginTop: '25px',
 };
 
 const cancelButton: React.CSSProperties = {
@@ -1171,7 +1464,7 @@ const cancelButton: React.CSSProperties = {
   borderRadius: '8px',
   cursor: 'pointer',
   fontWeight: '500',
-  fontSize: '14px'
+  fontSize: '14px',
 };
 
 const exportButton: React.CSSProperties = {
@@ -1182,10 +1475,8 @@ const exportButton: React.CSSProperties = {
   borderRadius: '8px',
   cursor: 'pointer',
   fontWeight: '500',
-  fontSize: '14px'
+  fontSize: '14px',
 };
-
-
 
 const generateButton: React.CSSProperties = {
   padding: '10px 20px',
@@ -1195,7 +1486,7 @@ const generateButton: React.CSSProperties = {
   borderRadius: '8px',
   cursor: 'pointer',
   fontWeight: '500',
-  fontSize: '14px'
+  fontSize: '14px',
 };
 
 const td = { padding: 8, border: '1px solid #dee2e6', textAlign: 'center' as const };

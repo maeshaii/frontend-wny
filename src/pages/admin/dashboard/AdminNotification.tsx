@@ -19,44 +19,44 @@ const AdminNotificationPage: React.FC = () => {
     navigate('/login');
   };
 
-//   const handleDelete = async () => {
-//     if (selected.length === 0) return;
-//     const result = await deleteNotifications(selected);
-//     if (result.success) {
-//       setNotifications(notifications.filter(n => !selected.includes(n.id)));
-//       setSelected([]);
-//     } else {
-//       alert('Failed to delete notifications.');
-//     }
-//   };
+  //   const handleDelete = async () => {
+  //     if (selected.length === 0) return;
+  //     const result = await deleteNotifications(selected);
+  //     if (result.success) {
+  //       setNotifications(notifications.filter(n => !selected.includes(n.id)));
+  //       setSelected([]);
+  //     } else {
+  //       alert('Failed to delete notifications.');
+  //     }
+  //   };
 
-//   useEffect(() => {
-//     const userStr = localStorage.getItem('user');
-//     if (!userStr) {
-//       navigate('/login');
-//       return;
-//     }
-//     const user = JSON.parse(userStr);
-//     if (!user.id) return;
-//     setLoading(true);
-//     fetchNotifications(user.id).then((data) => {
-//       setNotifications(data.notifications || []);
-//     }).finally(() => setLoading(false));
-//   }, [navigate]);
+  //   useEffect(() => {
+  //     const userStr = localStorage.getItem('user');
+  //     if (!userStr) {
+  //       navigate('/login');
+  //       return;
+  //     }
+  //     const user = JSON.parse(userStr);
+  //     if (!user.id) return;
+  //     setLoading(true);
+  //     fetchNotifications(user.id).then((data) => {
+  //       setNotifications(data.notifications || []);
+  //     }).finally(() => setLoading(false));
+  //   }, [navigate]);
 
-  const filteredNotifications = notifications.filter(n =>
+  const filteredNotifications = notifications.filter((n) =>
     n.content.toLowerCase().includes(search.toLowerCase())
   );
 
   const toggleSelect = (id: number) => {
-    setSelected(sel => sel.includes(id) ? sel.filter(i => i !== id) : [...sel, id]);
+    setSelected((sel) => (sel.includes(id) ? sel.filter((i) => i !== id) : [...sel, id]));
   };
 
   const selectAll = () => {
     if (selected.length === filteredNotifications.length) {
       setSelected([]);
     } else {
-      setSelected(filteredNotifications.map(n => n.id));
+      setSelected(filteredNotifications.map((n) => n.id));
     }
   };
 
@@ -79,9 +79,9 @@ const AdminNotificationPage: React.FC = () => {
               cursor: 'pointer',
               fontWeight: 600,
               fontSize: '1rem',
-              margin: '12px 0'
+              margin: '12px 0',
             }}
-            onClick={() => window.location.href = trackerLink}
+            onClick={() => (window.location.href = trackerLink)}
           >
             📒 Tracker Form
           </button>
@@ -94,9 +94,35 @@ const AdminNotificationPage: React.FC = () => {
 
   return (
     <div style={{ background: '#f5f7fa', minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
-      <AlumniTopBar showProfile={showProfile} setShowProfile={setShowProfile} handleLogout={handleLogout} isAdmin={true} onTrackerClick={() => navigate('/tracker')} />
-      <div style={{ maxWidth: 900, margin: '40px auto', background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', padding: 24 }}>
-        <button onClick={() => navigate('/ccict/dashboard')} style={{ marginBottom: 16, background: '#174f84', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 20px', cursor: 'pointer' }}>
+      <AlumniTopBar
+        showProfile={showProfile}
+        setShowProfile={setShowProfile}
+        handleLogout={handleLogout}
+        isAdmin={true}
+        onTrackerClick={() => navigate('/tracker')}
+      />
+      <div
+        style={{
+          maxWidth: 900,
+          margin: '40px auto',
+          background: '#fff',
+          borderRadius: 12,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          padding: 24,
+        }}
+      >
+        <button
+          onClick={() => navigate('/ccict/dashboard')}
+          style={{
+            marginBottom: 16,
+            background: '#174f84',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            padding: '8px 20px',
+            cursor: 'pointer',
+          }}
+        >
           ← Back to Dashboard
         </button>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
@@ -105,11 +131,22 @@ const AdminNotificationPage: React.FC = () => {
             type="text"
             placeholder="Search notif"
             value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ borderRadius: 8, border: '1px solid #ccc', padding: '6px 12px', marginRight: 16 }}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              borderRadius: 8,
+              border: '1px solid #ccc',
+              padding: '6px 12px',
+              marginRight: 16,
+            }}
           />
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: 8 }} onClick={selectAll} title="Select All">
-            <span role="img" aria-label="select-all">☑️</span>
+          <button
+            style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: 8 }}
+            onClick={selectAll}
+            title="Select All"
+          >
+            <span role="img" aria-label="select-all">
+              ☑️
+            </span>
           </button>
           {/* <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} title="Delete Selected" disabled={selected.length === 0} onClick={handleDelete}>
             <span role="img" aria-label="delete">🗑️</span>
@@ -129,38 +166,63 @@ const AdminNotificationPage: React.FC = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24 }}>Loading...</td></tr>
-              ) : filteredNotifications.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: '#888' }}>No notifications found.</td></tr>
-              ) : filteredNotifications.map((notif) => (
-                <tr
-                  key={notif.id}
-                  style={{ borderBottom: '1px solid #eee', background: selected.includes(notif.id) ? '#e0e7ef' : undefined, cursor: 'pointer' }}
-                  onClick={() => setOpenNotif(notif)}
-                >
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(notif.id)}
-                      onClick={e => e.stopPropagation()}
-                      onChange={() => toggleSelect(notif.id)}
-                    />
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: 24 }}>
+                    Loading...
                   </td>
-                  <td>
-                    <button
-                      style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                      title="Expand"
-                      onClick={e => { e.stopPropagation(); setOpenNotif(notif); }}
-                    >
-                      <span role="img" aria-label="expand">▾</span>
-                    </button>
-                  </td>
-                  <td style={{ fontWeight: 600, color: '#174f84' }}>{notif.type}</td>
-                  <td style={{ fontWeight: 600 }}>{notif.subject || 'No Subject'}</td>
-                  <td style={{ color: '#333' }}>{notif.content.length > 60 ? notif.content.slice(0, 60) + '...' : notif.content}</td>
-                  <td style={{ textAlign: 'right', color: '#888', fontSize: 13 }}>{notif.date}</td>
                 </tr>
-              ))}
+              ) : filteredNotifications.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: 24, color: '#888' }}>
+                    No notifications found.
+                  </td>
+                </tr>
+              ) : (
+                filteredNotifications.map((notif) => (
+                  <tr
+                    key={notif.id}
+                    style={{
+                      borderBottom: '1px solid #eee',
+                      background: selected.includes(notif.id) ? '#e0e7ef' : undefined,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => setOpenNotif(notif)}
+                  >
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(notif.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleSelect(notif.id)}
+                      />
+                    </td>
+                    <td>
+                      <button
+                        style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                        title="Expand"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenNotif(notif);
+                        }}
+                      >
+                        <span role="img" aria-label="expand">
+                          ▾
+                        </span>
+                      </button>
+                    </td>
+                    <td style={{ fontWeight: 600, color: '#174f84' }}>{notif.type}</td>
+                    <td style={{ fontWeight: 600 }}>{notif.subject || 'No Subject'}</td>
+                    <td style={{ color: '#333' }}>
+                      {notif.content.length > 60
+                        ? notif.content.slice(0, 60) + '...'
+                        : notif.content}
+                    </td>
+                    <td style={{ textAlign: 'right', color: '#888', fontSize: 13 }}>
+                      {notif.date}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -192,7 +254,7 @@ const AdminNotificationPage: React.FC = () => {
               width: '90%',
               position: 'relative',
             }}
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setOpenNotif(null)}
@@ -210,8 +272,12 @@ const AdminNotificationPage: React.FC = () => {
             >
               ×
             </button>
-            <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 8 }}>{openNotif.subject || 'No Subject'}</div>
-            <div style={{ color: '#174f84', fontWeight: 600, marginBottom: 4 }}>{openNotif.type}</div>
+            <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 8 }}>
+              {openNotif.subject || 'No Subject'}
+            </div>
+            <div style={{ color: '#174f84', fontWeight: 600, marginBottom: 4 }}>
+              {openNotif.type}
+            </div>
             <div style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>{openNotif.date}</div>
             <div style={{ fontSize: 16, whiteSpace: 'pre-line', marginBottom: 24 }}>
               {renderMessageWithButton(openNotif.content)}
@@ -223,4 +289,4 @@ const AdminNotificationPage: React.FC = () => {
   );
 };
 
-export default AdminNotificationPage; 
+export default AdminNotificationPage;
