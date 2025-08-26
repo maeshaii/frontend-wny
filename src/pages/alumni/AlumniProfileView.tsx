@@ -26,7 +26,7 @@ const AlumniProfileView = () => {
         <strong>Course:</strong> {alumni.course}
       </p>
       <p>
-        <strong>Year Graduated:</strong> {alumni.year_graduated}
+        <strong>Class of:</strong> {alumni.year_graduated}
       </p>
       <p>
         <strong>Bio:</strong> {alumni.profile_bio}

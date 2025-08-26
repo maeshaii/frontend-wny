@@ -273,7 +273,6 @@ const AlumniData: React.FC = () => {
           >
             <thead style={{ backgroundColor: '#6a74f0', color: 'white' }}>
               <tr>
-                <th style={headerCell}>#</th>
                 <th style={headerCell}>Program Name</th>
                 <th style={headerCell}>Last Name</th>
                 <th style={headerCell}>Middle Name</th>
@@ -303,7 +302,6 @@ const AlumniData: React.FC = () => {
                     onMouseOver={(e) => (e.currentTarget.style.background = '#f0f4ff')}
                     onMouseOut={(e) => (e.currentTarget.style.background = '')}
                   >
-                    <td style={bodyCell}>{String(index + 1).padStart(2, '0')}</td>
                     <td style={bodyCell}>
                       {alumni.program || alumni.Program_Name || alumni.course || ''}
                     </td>

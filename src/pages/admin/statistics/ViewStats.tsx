@@ -201,9 +201,9 @@ const App: React.FC = () => {
                 </div>
                 <div style={{ backgroundColor: '#174f84', color: 'white', padding: '15px' }}>
                   <strong style={{ fontSize: '15px', display: 'block', marginBottom: '5px' }}>
-                    YEAR GRADUATED: {grad.year}
+                    CLASS OF {grad.year}
                   </strong>
-                  <div style={{ fontSize: '13px' }}>Imported: {grad.count}</div>
+                  <div style={{ fontSize: '13px' }}>Alumni: {grad.count}</div>
                 </div>
               </div>
             ))
@@ -275,7 +275,7 @@ const App: React.FC = () => {
                     border: 'none',
                     marginTop: 6,
                     marginBottom: 12,
-                    background: 'white',
+                    background: 'transparent',
                   }}
                   onChange={(e) => setImportFile(e.target.files ? e.target.files[0] : null)}
                 />

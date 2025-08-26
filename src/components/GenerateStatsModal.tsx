@@ -1207,12 +1207,6 @@ const GenerateStatsModal: React.FC<Props> = ({ onClose, onGenerate }) => {
           </button>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-          <button style={cancelButton} onClick={handleClose}>
-            Cancel
-          </button>
-        </div>
-
         {allStats && (
           <div style={{
             display: 'grid',

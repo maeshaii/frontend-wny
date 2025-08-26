@@ -686,17 +686,27 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
                           {q.type === 'text' &&
                             (() => {
                               const inputProps = getInputProps(q);
+                              const lower = q.text.toLowerCase();
+                              const isAge = lower.includes('age');
+                              const isBirth = lower.includes('birth') || lower.includes('bday') || lower.includes('date of birth');
+                              const isPhone = lower.includes('phone') || lower.includes('mobile') || lower.includes('contact');
+                              const type = isAge ? 'number' : isBirth ? 'date' : inputProps.type;
+                              const placeholder = isBirth ? 'YYYY-MM-DD' : inputProps.placeholder;
                               return (
                                 <>
                                   <input
-                                    type={inputProps.type}
+                                    type={type}
                                     value={getPrefilledValue(q)}
                                     readOnly={isReadOnlyField(q)}
-                                    placeholder={inputProps.placeholder}
+                                    placeholder={placeholder}
                                     pattern={inputProps.pattern}
+                                    onKeyDown={(e) => {
+                                      if ((isAge || isPhone) && !(['Backspace','Delete','Tab','ArrowLeft','ArrowRight','Home','End'].includes(e.key) || /[0-9]/.test(e.key))) {
+                                        e.preventDefault();
+                                      }
+                                    }}
                                     onChange={(e) => {
                                       handleResponseChange(cat.id, q.id, e.target.value);
-                                      // Validate on change
                                       const err = inputProps.validate(e.target.value);
                                       setValidationErrors((prev) => ({
                                         ...prev,

@@ -126,9 +126,9 @@ const UsersIndex: React.FC = () => {
                 </div>
                 <div style={{ backgroundColor: '#174f84', color: 'white', padding: '15px' }}>
                   <strong style={{ fontSize: '15px', display: 'block', marginBottom: '5px' }}>
-                    YEAR GRADUATED: {batch.year}
+                    CLASS OF {batch.year}
                   </strong>
-                  <div style={{ fontSize: '13px' }}>Imported: {batch.count}</div>
+                  <div style={{ fontSize: '13px' }}>Alumni: {batch.count}</div>
                 </div>
               </div>
             ))}
@@ -224,7 +224,6 @@ const UsersIndex: React.FC = () => {
             >
               <thead>
                 <tr style={{ background: '#174f84', color: 'white' }}>
-                  <th style={{ padding: '12px' }}>#</th>
                   <th style={{ padding: '12px' }}>Name</th>
                   <th style={{ padding: '12px' }}>ID Number</th>
                   <th style={{ padding: '12px' }}>Course</th>
@@ -262,7 +261,6 @@ const UsersIndex: React.FC = () => {
                         (e.currentTarget as HTMLTableRowElement).style.background = '';
                       }}
                     >
-                      <td style={{ padding: '10px' }}>{String(index + 1).padStart(2, '0')}</td>
                       <td>{user.name}</td>
                       <td>{user.ctu_id}</td>
                       <td>{user.course}</td>

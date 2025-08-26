@@ -197,7 +197,6 @@ export const User: React.FC<Props> = ({ users, type, onBack }) => {
       >
         <thead>
           <tr style={{ background: '#174f84', color: 'white' }}>
-            <th style={{ padding: '12px' }}>#</th>
             <th style={{ padding: '12px' }}>Name</th>
             <th style={{ padding: '12px' }}>ID Number</th>
             <th style={{ padding: '12px' }}>Course</th>
@@ -213,7 +212,6 @@ export const User: React.FC<Props> = ({ users, type, onBack }) => {
                 textAlign: 'center',
               }}
             >
-              <td style={{ padding: '10px' }}>{String(index + 1).padStart(2, '0')}</td>
               <td
                 style={{
                   cursor: 'pointer',

@@ -84,10 +84,50 @@ export default function Statistics() {
     loadEmploymentStats();
   }, [selectedYear, selectedCourse]);
 
-  const chartData =
-    Object.entries(employmentStats).length > 0
-      ? Object.entries(employmentStats).map(([category, count]) => ({ category, count }))
-      : initialData;
+  // Helper: normalize arbitrary backend status keys to canonical buckets
+  const normalizeStatusCounts = (raw: { [key: string]: number } = {}) => {
+    const result: { [key: string]: number } = {
+      Employed: 0,
+      Unemployed: 0,
+      Absorb: 0,
+      Pending: 0,
+    };
+
+    Object.entries(raw || {}).forEach(([key, value]) => {
+      const k = (key || '').toString().toLowerCase();
+      const n = Number(value) || 0;
+      if (k.includes('unemploy')) {
+        result.Unemployed += n;
+      } else if (k.includes('employ')) {
+        // Count only non-unemployed employ terms
+        result.Employed += n;
+      } else if (k.includes('absorb')) {
+        result.Absorb += n;
+      } else if (k.includes('pending')) {
+        result.Pending += n;
+      } else if (k.includes('active')) {
+        // Treat 'active' user_status as Pending for the tracker context
+        result.Pending += n;
+      } else {
+        // Unknown bucket -> Pending by default
+        result.Pending += n;
+      }
+    });
+
+    return result;
+  };
+
+  // Build chart data from normalized buckets in a stable order
+  const chartData = (() => {
+    const counts = normalizeStatusCounts(employmentStats);
+    return [
+      { category: 'Pending', count: counts.Pending },
+      { category: 'Employed', count: counts.Employed },
+      { category: 'Unemployed', count: counts.Unemployed },
+      { category: 'Absorb', count: counts.Absorb },
+    ];
+  })();
+
   const maxCount = chartData.length > 0 ? Math.max(...chartData.map((d) => d.count)) : 0;
   const maxTick = Math.ceil(maxCount / 10) * 10;
   const ticks = Array.from({ length: maxTick / 10 + 1 }, (_, i) => i * 10);
@@ -484,6 +524,7 @@ export default function Statistics() {
             font-size: 14px;
             border: 1px solid #ccc;
             border-radius: 6px;
+            background-color: transparent;
           }
 
           .modal-actions {

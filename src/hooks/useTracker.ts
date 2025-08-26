@@ -52,29 +52,47 @@ export const useTracker = (userId: string | null) => {
     async (userId: string): Promise<boolean> => {
       try {
         const targetBatchYear = trackerUtils.getTargetBatchYear();
+        console.log('🔍 Tracker Debug - Target batch year:', targetBatchYear);
 
         const userDetails = await fetchAlumniDetails(userId);
+        console.log('🔍 Tracker Debug - User details response:', userDetails);
 
-        if (!userDetails.success || !userDetails.alumni) {
+        if (!userDetails?.success || !userDetails?.alumni) {
+          console.error('🔍 Tracker Debug - Failed to get user details:', userDetails);
           redirectWithMessage(
             'Unable to verify your batch year. This tracker form is only available for specific alumni batches.'
           );
           return false;
         }
 
-        const userYear = userDetails.alumni.batch || userDetails.alumni.year_graduated;
+        // Prefer alumni.batch; fallback to alumni.year_graduated; coerce to number
+        const rawYear = userDetails.alumni.batch ?? userDetails.alumni.year_graduated ?? null;
+        const userYear = rawYear !== null ? Number(rawYear) : null;
+        console.log('🔍 Tracker Debug - Raw year:', rawYear, 'Coerced userYear:', userYear);
+
+        if (userYear === null || Number.isNaN(userYear)) {
+          redirectWithMessage(
+            'Unable to determine your batch year. Please contact support for assistance.'
+          );
+          return false;
+        }
+
         updateState({
           userBatchYear: userYear,
           isCorrectBatch: trackerUtils.validateBatchYear(userYear),
         });
 
         if (!trackerUtils.validateBatchYear(userYear)) {
-          redirectWithMessage(trackerUtils.getBatchYearMessage(userYear));
+          redirectWithMessage(
+            `This tracker form is only available for batch ${targetBatchYear} alumni. You are from batch ${userYear}.`
+          );
           return false;
         }
 
+        console.log('🔍 Tracker Debug - Batch validation successful');
         return true;
       } catch (error) {
+        console.error('🔍 Tracker Debug - Error in validateBatchYear:', error);
         redirectWithMessage('Error validating batch year. Please try again later.');
         return false;
       }

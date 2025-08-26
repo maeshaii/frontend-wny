@@ -417,8 +417,8 @@ export default function Dashboard() {
                     onClick={() => setSelectedCard(yearData.year)}
                   >
                     <div style={styles.cardImage}></div>
-                    <p style={styles.cardText}>YEAR GRADUATED: {yearData.year}</p>
-                    <p style={styles.cardText}>Imported: {yearData.count}</p>
+                    <p style={styles.cardText}>CLASS OF {yearData.year}</p>
+                    <p style={styles.cardText}>Alumni: {yearData.count}</p>
                   </div>
                 ))
               )}
