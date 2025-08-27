@@ -16,6 +16,10 @@ const Sidebar = () => {
       justifyContent: 'space-between',
       color: 'white',
       padding: '20px 10px',
+      position: 'fixed' as const,
+      top: 0,
+      left: 0,
+      zIndex: 1000,
     },
     topSection: {
       display: 'flex',

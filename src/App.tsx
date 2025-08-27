@@ -18,7 +18,6 @@ import AlumniProfile from './pages/alumni/Profile';
 import AdminDashboard from './pages/admin/dashboard/AdminDashboard';
 import AdminNotificationPage from './pages/admin/dashboard/AdminNotification';
 import AdminProfilePage from './pages/admin/dashboard/AdminProfilePage';
-
 import CoordinatorDashboard from './pages/coordinator/dashboard';
 // import other pages like Statistics, Users, etc.
 import { PrivateRoute } from './components/PrivateRoute';

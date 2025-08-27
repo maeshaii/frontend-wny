@@ -9,32 +9,35 @@ const Dashboard = () => {
 
   const contentStyle: React.CSSProperties = {
     flex: 1,
-    padding: '20px',
+    padding: '32px 48px',
     backgroundColor: '#f5f6fa',
+    marginLeft: 240, // increased space from fixed sidebar
+    height: '100vh',
+    overflowY: 'auto',
   };
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: '#ffffff',
     borderRadius: '12px',
-    padding: '20px',
+    padding: '24px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
     flex: 1,
     minWidth: '200px',
-    margin: '10px',
+    margin: '12px',
     textAlign: 'center',
   };
 
   const cardsContainerStyle: React.CSSProperties = {
     display: 'flex',
     flexWrap: 'wrap',
-    marginTop: '20px',
+    marginTop: '24px',
   };
 
   return (
     <div style={layoutStyle}>
       <Sidebar />
       <div style={contentStyle}>
-        <h2>Welcome to Your Dashboard</h2>
+        <h2 style={{ marginTop: 0 }}>Welcome to Your Dashboard</h2>
         <p>Here is a quick summary of your data:</p>
 
         <div style={cardsContainerStyle}>

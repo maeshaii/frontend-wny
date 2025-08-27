@@ -231,10 +231,8 @@ export default function Statistics() {
     <div style={{ display: 'flex', height: '100vh', position: 'relative' }}>
       <Sidebar />
 
-      <div
-        style={{ padding: '24px', fontFamily: 'Arial, sans-serif', flex: 1, position: 'relative' }}
-      >
-        <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Statistics</h2>
+      <div style={{ padding: '32px 48px', fontFamily: 'Arial, sans-serif', flex: 1, position: 'relative', marginLeft: 240, overflowY: 'auto' }}>
+        <h2 style={{ fontSize: '22px', marginBottom: '16px' }}>Statistics</h2>
 
         {/* Filters */}
         <div className="filter-container">

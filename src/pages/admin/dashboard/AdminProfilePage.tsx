@@ -31,8 +31,10 @@ const AdminProfilePage: React.FC = () => {
     fetch(`/api/admin/${userId}/profile_bio/`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.profile_bio) {
+        if (data && data.profile_bio) {
           setProfileBio(data.profile_bio);
+        } else {
+          setProfileBio('');
         }
       });
   }, []);

@@ -76,6 +76,11 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
   // Add validation state
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  // New state for job alignment question
+  const [customJobInputs, setCustomJobInputs] = useState<{ [questionId: string]: boolean }>({});
+  const [jobInputValues, setJobInputValues] = useState<{ [questionId: string]: string }>({});
+  const [jobAlignment, setJobAlignment] = useState<Record<string, string>>({});
+
   // Conditional rendering logic
   const shouldShowCategory = (category: CategoryItem) => {
     // Check if this is "PART III: EMPLOYMENT STATUS" category
@@ -431,6 +436,18 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
         validate: (v: string) => (/^https?:\/\//.test(v) ? '' : 'Invalid URL.'),
       };
     }
+    // Add numerical validation for age, salary, income, and other numerical fields
+    if (text.includes('age') || text.includes('salary') || text.includes('income') || text.includes('amount') || text.includes('number') || text.includes('monthly') || text.includes('annual') || text.includes('yearly')) {
+      return { 
+        type: 'number', 
+        placeholder: 'Enter numbers only', 
+        validate: (v: string) => {
+          if (!v) return ''; // Allow empty for optional fields
+          if (/^\d+$/.test(v)) return ''; // Only digits allowed
+          return 'This field only accepts numbers (0-9)';
+        }
+      };
+    }
     return { type: 'text', placeholder: '', validate: (_: string) => '' };
   };
 
@@ -605,6 +622,24 @@ const Question: React.FC<QuestionProps> = ({ previewModeFromParent, userId }) =>
     const text = q.text.toLowerCase();
     return text.includes('course') || text.includes('year graduated') || text.includes('batch');
   }
+
+  // New handler for job change
+  const handleJobChange = (catId: number, qId: number | string, value: any) => {
+    // This is called when a value is selected from dropdown or entered
+    const isCustom = typeof value === 'string' && !jobList.some(j => j.title === value);
+    setCustomJobInputs(prev => ({ ...prev, [qId]: isCustom }));
+    handleResponseChange(catId, qId, value);
+    if (!isCustom) {
+      setJobAlignment(prev => ({ ...prev, [qId]: '' }));
+    }
+  };
+
+  const handleJobInputChange = (qId: number | string, value: string) => {
+    setJobInputValues(prev => ({ ...prev, [qId]: value }));
+    // Show radio if not in jobList and not empty
+    const isCustom = !!value && !jobList.some(j => j.title.toLowerCase() === value.toLowerCase());
+    setCustomJobInputs(prev => ({ ...prev, [qId]: Boolean(isCustom) }));
+  };
 
   return (
     <div className="tracker-container">

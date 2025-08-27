@@ -7,27 +7,27 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Attach Authorization automatically
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers['Authorization'] = `Bearer ${token}`;
+// Attach Authorization automatically with dev logging
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+        headers: config.headers,
+        data: config.data,
+      });
+    }
+    return config;
+  },
+  (error) => {
+    console.error('Request interceptor error:', error);
+    return Promise.reject(error);
   }
-  
-  // Add debugging for development
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
-      headers: config.headers,
-      data: config.data
-    });
-  }
-  
-  return config;
-}, (error) => {
-  console.error('Request interceptor error:', error);
-  return Promise.reject(error);
-});
+);
 
 // Refresh token on 401 once
 let refreshing: Promise<any> | null = null;
@@ -35,36 +35,26 @@ let refreshing: Promise<any> | null = null;
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-    
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
+    const originalRequest = error.config || {};
+    if (error.response?.status === 401 && !(originalRequest as any)._retry) {
+      (originalRequest as any)._retry = true;
       if (!refreshing) {
         refreshing = (async () => {
           try {
             const refreshToken = localStorage.getItem('refreshToken');
-            if (!refreshToken) {
-              throw new Error('No refresh token available');
-            }
-            
-            const response = await axios.post(`${API_BASE}token/refresh/`, {
-              refresh: refreshToken
-            });
-            
-            localStorage.setItem('accessToken', response.data.access);
-            
-            // Retry the original request with new token
-            originalRequest.headers['Authorization'] = `Bearer ${response.data.access}`;
+            if (!refreshToken) throw new Error('No refresh token available');
+            const response = await axios.post(`${API_BASE}token/refresh/`, { refresh: refreshToken });
+            const newAccess = response.data?.access;
+            if (!newAccess) throw new Error('No access token in refresh response');
+            localStorage.setItem('accessToken', newAccess);
+            (originalRequest.headers as any) = (originalRequest.headers as any) || {};
+            (originalRequest.headers as any).Authorization = `Bearer ${newAccess}`;
             return api(originalRequest);
           } catch (refreshError) {
             console.error('Token refresh failed:', refreshError);
-            // Clear invalid tokens
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
-            
-            // Redirect to login if we're not already there
             if (window.location.pathname !== '/login') {
               window.location.href = '/login';
             }
@@ -74,14 +64,21 @@ api.interceptors.response.use(
           }
         })();
       }
-      
       return refreshing;
     }
-    
     return Promise.reject(error);
   }
 );
 
+// Helper: get user info from localStorage
+export const getUserInfo = () => {
+  try {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+  } catch {
+    return null;
+  }
+};
 // Fetch followers for a user
 export const fetchFollowers = async (userId: number) => {
   const response = await api.get(`alumni/${userId}/followers/`);
@@ -368,5 +365,63 @@ export const deleteNotifications = async (notificationIds: number[]) => {
 // Fetch single alumni details by user_id
 export const fetchAlumniDetails = async (userId: string | number) => {
   const response = await api.get(`alumni/${userId}/`);
+  return response.data;
+};
+// -------- Posts API --------
+export const getPostCategories = async () => {
+  try {
+    const response = await api.get('post-categories/');
+    const categories = (response.data && (response.data.categories || response.data)) || [];
+    return { categories };
+  } catch (e) {
+    const response = await axios.get(`${API_BASE}post-categories/`);
+    const categories = (response.data && (response.data.categories || response.data)) || [];
+    return { categories };
+  }
+};
+
+export const getPosts = async () => {
+  const response = await api.get('posts/');
+  return response.data?.posts || [];
+};
+
+export const createPost = async (postData: {
+  post_title: string;
+  post_content: string;
+  post_image?: string;
+  post_cat_id: number;
+  type?: string;
+}) => {
+  const response = await api.post('posts/', postData);
+  return response.data;
+};
+
+export const likePost = async (postId: number) => {
+  const response = await api.post(`posts/${postId}/like/`);
+  return response.data;
+};
+
+export const unlikePost = async (postId: number) => {
+  const response = await api.delete(`posts/${postId}/like/`);
+  return response.data;
+};
+
+export const commentOnPost = async (postId: number, commentContent: string) => {
+  const response = await api.post(`posts/${postId}/comments/`, { comment_content: commentContent });
+  return response.data;
+};
+
+export const getPostComments = async (postId: number) => {
+  const response = await api.get(`posts/${postId}/comments/`);
+  return response.data;
+};
+
+export const repostPost = async (postId: number) => {
+  const response = await api.post(`posts/${postId}/repost/`);
+  return response.data;
+};
+
+export const deleteRepost = async (repostId: number) => {
+  const response = await api.delete(`reposts/${repostId}/`);
   return response.data;
 };

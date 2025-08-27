@@ -27,14 +27,15 @@ const AlumniTopBar: React.FC<AlumniTopBarProps> = ({
   React.useEffect(() => {
     const delayDebounce = setTimeout(() => {
       if (searchValue.trim() !== '') {
-        fetch(`http://127.0.0.1:8000/api/alumni/search/?q=${searchValue}`)
+        fetch(`http://127.0.0.1:8000/api/alumni/search/?q=${encodeURIComponent(searchValue)}`)
           .then((res) => res.json())
           .then((data) => {
+            const raw = Array.isArray(data) ? data : (data.results || data.users || []);
             const userStr = localStorage.getItem('user');
-            let filteredData = data;
+            let filteredData = raw;
             if (userStr) {
               const userObj = JSON.parse(userStr);
-              filteredData = data.filter((user: any) => {
+              filteredData = (raw || []).filter((user: any) => {
                 const userIdInResult = user.user_id ?? user.id;
                 const userIdInStorage = userObj.user_id ?? userObj.id;
                 return userIdInResult !== userIdInStorage;
@@ -42,6 +43,10 @@ const AlumniTopBar: React.FC<AlumniTopBarProps> = ({
             }
             setSearchResults(filteredData);
             setShowSuggestions(true);
+          })
+          .catch(() => {
+            setSearchResults([]);
+            setShowSuggestions(false);
           });
       } else {
         setSearchResults([]);
@@ -55,6 +60,7 @@ const AlumniTopBar: React.FC<AlumniTopBarProps> = ({
   const handleSearchSelect = (userId: number) => {
     setShowSuggestions(false);
     setSearchValue('');
+    if (!userId || Number.isNaN(Number(userId))) return;
     navigate(`/alumni/profile/${userId}`);
   };
 
@@ -135,8 +141,8 @@ const AlumniTopBar: React.FC<AlumniTopBarProps> = ({
             >
               {searchResults.map((user) => (
                 <div
-                  key={user.id}
-                  onClick={() => handleSearchSelect(user.user_id)}
+                  key={user.user_id ?? user.id}
+                  onClick={() => handleSearchSelect(user.user_id ?? user.id)}
                   style={{
                     padding: 10,
                     cursor: 'pointer',
@@ -146,7 +152,7 @@ const AlumniTopBar: React.FC<AlumniTopBarProps> = ({
                   }}
                 >
                   <img
-                    src={user.profile_pic ? `http://127.0.0.1:8000${user.profile_pic}` : ctulogo}
+                    src={user.profile_pic ? (String(user.profile_pic).startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo}
                     alt=""
                     style={{ width: 30, height: 30, borderRadius: '50%' }}
                   />
