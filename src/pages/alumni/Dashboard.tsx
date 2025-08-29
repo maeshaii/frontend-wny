@@ -149,6 +149,7 @@ const AlumniDashboard: React.FC = () => {
   const [likedPosts, setLikedPosts] = useState<{ [key: number]: boolean }>({});
   const [repostedPosts, setRepostedPosts] = useState<{ [key: number]: boolean }>({});
   const [repostError, setRepostError] = useState<string | null>(null);
+  const [refreshSuggestedUsers, setRefreshSuggestedUsers] = useState(0); // Add this to trigger refresh
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -167,6 +168,8 @@ const AlumniDashboard: React.FC = () => {
       if (result.success) {
         // Remove from suggestions immediately after following
         setSuggestedUsers((prev) => prev.filter((u) => u.id !== userId));
+        // Don't trigger refresh here as it will fetch the user again
+        // setRefreshSuggestedUsers(prev => prev + 1);
       }
     } catch (error) {
       console.error('Error following user:', error);
@@ -180,7 +183,10 @@ const AlumniDashboard: React.FC = () => {
     try {
       const result = await unfollowUser(userId);
       if (result.success) {
-        setSuggestedUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, isFollowing: false } : u)));
+        // Remove from suggestions if they were there, or update their status
+        setSuggestedUsers((prev) => prev.filter((u) => u.id !== userId));
+        // Don't trigger refresh here as it will fetch the user again
+        // setRefreshSuggestedUsers(prev => prev + 1);
       }
     } catch (error) {
       console.error('Error unfollowing user:', error);
@@ -189,6 +195,7 @@ const AlumniDashboard: React.FC = () => {
     }
   };
 
+  // Separate useEffect for fetching suggested users
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (!userStr) {
@@ -213,13 +220,25 @@ const AlumniDashboard: React.FC = () => {
               }
             })
           );
+          // Only show users that are not being followed and not the current user
           const unfollowedUsers = usersWithFollowStatus
             .filter(user => !user.isFollowing)
-            .filter(user => Number(user.id) !== Number(userObj.id)); // Ensure self is not suggested
+            .filter(user => Number(user.id) !== Number(userObj.id)) // Ensure self is not suggested
+            .filter(user => Number(user.id) !== Number(userObj.user_id)); // Double check for user_id
           setSuggestedUsers(unfollowedUsers);
         }
       })
       .catch((error) => console.error('Error fetching users:', error));
+  }, [navigate]); // Remove refreshSuggestedUsers dependency to prevent unnecessary refetches
+
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) {
+      navigate('/login');
+      return;
+    }
+    const userObj = JSON.parse(userStr);
+    setUser(userObj);
 
     // Fix: Ensure posts are properly fetched and displayed
     getPosts().then((list: any[]) => {

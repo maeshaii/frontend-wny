@@ -104,6 +104,7 @@ const AlumniProfile: React.FC = () => {
   const [likedPosts, setLikedPosts] = useState<{ [key: number]: boolean }>({});
   const [repostedPosts, setRepostedPosts] = useState<{ [key: number]: boolean }>({});
   const [repostError, setRepostError] = useState<string | null>(null);
+  const [showFollowersModal, setShowFollowersModal] = useState(false); // Add this for followers modal
 
   // Get current user ID
   const currentUserObj = JSON.parse(localStorage.getItem('user') || '{}');
@@ -113,17 +114,24 @@ const AlumniProfile: React.FC = () => {
   useEffect(() => {
     const loadUser = async () => {
       let userId = id;
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        navigate('/login');
+        return;
+      }
+      const userObj = JSON.parse(userStr);
+      const currentUserId = userObj.user_id || userObj.id;
+      
       if (!userId) {
-        const userStr = localStorage.getItem('user');
-        if (!userStr) {
-          navigate('/login');
-          return;
-        }
-        const userObj = JSON.parse(userStr);
-        userId = userObj.user_id || userObj.id;
+        // No ID in URL, so this is the current user's profile
+        userId = currentUserId;
         setIsOwnProfile(true);
+        console.log('Profile: Loading own profile, userId:', userId);
       } else {
-        setIsOwnProfile(false);
+        // There's an ID in URL, check if it's the current user's profile
+        const viewingOwn = Number(userId) === Number(currentUserId);
+        setIsOwnProfile(viewingOwn);
+        console.log('Profile: Loading profile for userId:', userId, 'isOwnProfile:', viewingOwn, 'currentUserId:', currentUserId);
       }
 
       try {
@@ -145,11 +153,9 @@ const AlumniProfile: React.FC = () => {
           }
           setUser(profile.alumni);
           setEditBio(profile.alumni.profile_bio || '');
-          if (
-            userId ===
-            (JSON.parse(localStorage.getItem('user') || '{}').user_id ||
-              JSON.parse(localStorage.getItem('user') || '{}').id)
-          ) {
+          
+          // Update localStorage only if viewing own profile
+          if (Number(userId) === Number(currentUserId)) {
             localStorage.setItem('user', JSON.stringify(profile.alumni));
           }
           
@@ -166,23 +172,24 @@ const AlumniProfile: React.FC = () => {
               })
               .catch(() => setFollowers([]));
 
-            // Check follow status
-            const currentUserObj = JSON.parse(localStorage.getItem('user') || '{}');
-            const currentId = currentUserObj.user_id || currentUserObj.id;
-            const viewingOwn = Number(numericUserId) === Number(currentId);
-            setIsOwnProfile(viewingOwn);
-
+            // Check follow status - only if viewing someone else's profile
+            const viewingOwn = Number(numericUserId) === Number(currentUserId);
+            console.log('Profile: Checking follow status, viewingOwn:', viewingOwn, 'numericUserId:', numericUserId, 'currentUserId:', currentUserId);
+            
             if (!viewingOwn) {
               checkFollowStatus(Number(numericUserId))
                 .then((data) => {
+                  console.log('Profile: Follow status response:', data);
                   if (data.success) {
                     setIsFollowing(!!data.is_following);
                   }
                 })
                 .catch((error) => {
                   console.error('Error checking follow status:', error);
+                  setIsFollowing(false);
                 });
             } else {
+              console.log('Profile: Viewing own profile, setting isFollowing to false');
               setIsFollowing(false);
             }
 
@@ -705,7 +712,15 @@ const AlumniProfile: React.FC = () => {
           <div className="profile-followers-card">
             <div className="profile-followers-header">
               <div className="profile-followers-title">Followers</div>
-              <div className="profile-followers-seeall">See all</div>
+              <div 
+                className="profile-followers-seeall" 
+                onClick={() => {
+                  setShowFollowersModal(true);
+                }}
+                style={{ cursor: 'pointer' }}
+              >
+                See all
+              </div>
             </div>
             <div className="profile-followers-list">
               {followers.length === 0 ? (
@@ -722,12 +737,13 @@ const AlumniProfile: React.FC = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             const destId = follower.user_id ?? follower.id;
-                            const me = JSON.parse(localStorage.getItem('user') || '{}');
-                            const meId = me.user_id || me.id;
-                            if (!destId || Number(destId) === Number(meId)) {
-                              navigate('/alumni/profile');
-                            } else {
+                            
+                            // Always navigate to the follower's profile if we have a valid ID
+                            if (destId && !isNaN(Number(destId))) {
+                              console.log('Followers: Navigating to follower profile:', destId);
                               navigate(`/alumni/profile/${destId}`);
+                            } else {
+                              console.log('Followers: Invalid follower ID:', destId);
                             }
                           }}
                           style={{ cursor: 'pointer' }}
@@ -784,7 +800,9 @@ const AlumniProfile: React.FC = () => {
                     {followLoading ? '...' : isFollowing ? 'Unfollow' : 'Follow'}
                   </button>
                 )}  
-                <button className="profile-message-button">Message</button>
+                {!isOwnProfile && (
+                  <button className="profile-message-button">Message</button>
+                )}
               </div>
             </div>
           </div>
@@ -1162,6 +1180,60 @@ const AlumniProfile: React.FC = () => {
               <button onClick={handleSave} className="profile-edit-modal-save-btn">
                 Save
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Followers Modal */}
+      {showFollowersModal && (
+        <div className="profile-followers-modal-overlay">
+          <div className="profile-followers-modal-content">
+            <div className="profile-followers-modal-header">
+              <h3 className="profile-followers-modal-title">Followers</h3>
+              <button
+                onClick={() => setShowFollowersModal(false)}
+                className="profile-followers-modal-close-btn"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="profile-followers-modal-list">
+              {followers.length === 0 ? (
+                <div className="profile-followers-modal-empty">No followers yet.</div>
+              ) : (
+                followers.map((follower) => (
+                  <div
+                    key={follower.user_id ?? follower.id}
+                    className="profile-followers-modal-item"
+                    onClick={() => {
+                      const destId = follower.user_id ?? follower.id;
+                      const me = JSON.parse(localStorage.getItem('user') || '{}');
+                      const meId = me.user_id || me.id;
+                      if (destId && Number(destId) !== Number(meId)) {
+                        navigate(`/alumni/profile/${destId}`);
+                        setShowFollowersModal(false);
+                      }
+                    }}
+                  >
+                    <img
+                      src={follower.profile_pic ? (String(follower.profile_pic).startsWith('http') ? follower.profile_pic : `http://127.0.0.1:8000${follower.profile_pic}`) : ctulogo}
+                      alt={follower.name}
+                      className="profile-followers-modal-img"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = ctulogo as unknown as string;
+                      }}
+                    />
+                    <div className="profile-followers-modal-info">
+                      <div className="profile-followers-modal-name">{follower.name}</div>
+                      <div className="profile-followers-modal-course">{follower.course || ''}</div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
