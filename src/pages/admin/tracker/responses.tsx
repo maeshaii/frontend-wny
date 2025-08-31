@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import './Tracker.css';
 import { fetchTrackerResponsesByBatchYear, fetchAlumniByYear } from '../../../services/api';
 import { trackerApi, trackerUtils } from '../../../services/trackerApi';
@@ -24,101 +25,61 @@ const Responses: React.FC = () => {
     localStorage.setItem('trackerResponsesActiveTab', activeTab);
   }, [activeTab]);
 
+  const queryClient = useQueryClient();
+  const activeFormQuery = useQuery({
+    queryKey: ['tracker', 'activeForm'],
+    queryFn: async () => trackerApi.getActiveForm(),
+  });
   useEffect(() => {
-    // Fetch trackerFormId from backend
-    const fetchFormId = async () => {
-      try {
-        const data = await trackerApi.getActiveForm();
-        if (data && data.tracker_form_id) {
-          setTrackerFormId(data.tracker_form_id);
-        } else {
-          console.error('No tracker form ID found in response:', data);
-        }
-      } catch (error) {
-        console.error('Error fetching tracker form ID:', error);
-        alert('Failed to load tracker form. Please refresh the page and try again.');
-      }
-    };
-    fetchFormId();
-  }, []);
+    if (activeFormQuery.data?.tracker_form_id)
+      setTrackerFormId(activeFormQuery.data.tracker_form_id);
+  }, [activeFormQuery.data]);
 
   // Calculate target batch year (current year - 2)
   const targetBatchYear = trackerUtils.getTargetBatchYear();
 
   // Fetch categories (questions), responses, and accepting state from backend
-  useEffect(() => {
-    if (!trackerFormId) return;
-    const fetchData = async () => {
-      try {
-        // Fetch questions/categories
-        const qData = await trackerApi.getQuestions();
-        if (qData && qData.categories) {
-          setCategories(qData.categories);
-        } else {
-          console.warn('No categories data received or invalid format');
-          setCategories([]);
-        }
-      
-      // Fetch responses filtered by target batch year
-        try {
-      const rData = await fetchTrackerResponsesByBatchYear(targetBatchYear.toString());
-          if (rData && rData.responses) {
-            setResponses(rData.responses);
-          } else {
-            console.warn('No responses data received or invalid format');
-            setResponses([]);
-          }
-        } catch (error) {
-          console.error('Error fetching responses:', error);
-          setResponses([]);
-        }
-        
-        // Fetch alumni users to get course information
-        try {
-          const alumniData = await fetchAlumniByYear(targetBatchYear.toString());
-          if (alumniData && alumniData.alumni) {
-            setAlumniUsers(alumniData.alumni);
-          } else {
-            console.warn('No alumni data received or invalid format');
-            setAlumniUsers([]);
-          }
-        } catch (error) {
-          console.error('Error fetching alumni users:', error);
-          setAlumniUsers([]);
-        }
-      
-      // Fetch accepting state
-        try {
-          const aData = await trackerApi.getAcceptingStatus(trackerFormId);
-          if (aData && typeof aData.accepting_responses === 'boolean') {
-            setAccepting(aData.accepting_responses);
-          } else {
-            console.warn('Invalid accepting state data:', aData);
-          }
-        } catch (error) {
-          console.error('Error fetching accepting state:', error);
-        }
+  const questionsQuery = useQuery({
+    queryKey: ['tracker', 'questions'],
+    queryFn: async () => trackerApi.getQuestions(),
+    enabled: !!trackerFormId,
+  });
+  const responsesQuery = useQuery({
+    queryKey: ['tracker', 'responses', targetBatchYear],
+    queryFn: async () => fetchTrackerResponsesByBatchYear(targetBatchYear.toString()),
+    enabled: !!trackerFormId,
+  });
+  const alumniQuery = useQuery({
+    queryKey: ['users', 'alumni', targetBatchYear],
+    queryFn: async () => fetchAlumniByYear(targetBatchYear.toString()),
+    enabled: !!trackerFormId,
+  });
+  const acceptingQuery = useQuery({
+    queryKey: ['tracker', 'accepting', trackerFormId],
+    queryFn: async () => trackerApi.getAcceptingStatus(trackerFormId as number),
+    enabled: !!trackerFormId,
+  });
+  const fileStatsQuery = useQuery({
+    queryKey: ['tracker', 'fileStats'],
+    queryFn: async () => trackerApi.getFileStats(),
+    enabled: !!trackerFormId,
+  });
 
-        // Fetch file upload statistics
-        try {
-          const fileData = await trackerApi.getFileStats();
-          if (fileData && fileData.success && fileData.stats) {
-            setFileStats(fileData.stats);
-          } else {
-            console.warn('No file stats data received or invalid format');
-            setFileStats([]);
-          }
-        } catch (error) {
-          console.error('Error fetching file stats:', error);
-          setFileStats([]);
-        }
-      } catch (error) {
-        console.error('Error in fetchData:', error);
-        alert('Failed to load data. Please refresh the page and try again.');
-      }
-    };
-    fetchData();
-  }, [trackerFormId, targetBatchYear]);
+  useEffect(() => {
+    if (questionsQuery.data?.categories) setCategories(questionsQuery.data.categories);
+    if (responsesQuery.data?.responses) setResponses(responsesQuery.data.responses);
+    if (alumniQuery.data?.alumni) setAlumniUsers(alumniQuery.data.alumni);
+    if (typeof acceptingQuery.data?.accepting_responses === 'boolean')
+      setAccepting(acceptingQuery.data.accepting_responses);
+    if (fileStatsQuery.data?.success && fileStatsQuery.data.stats)
+      setFileStats(fileStatsQuery.data.stats);
+  }, [
+    questionsQuery.data,
+    responsesQuery.data,
+    alumniQuery.data,
+    acceptingQuery.data,
+    fileStatsQuery.data,
+  ]);
 
   // Flatten all questions for summary
   const allQuestions = categories.flatMap((cat: any) => cat.questions);
@@ -129,13 +90,13 @@ const Responses: React.FC = () => {
       .filter((q: any) => q.type !== 'text')
       .map((q: any) => {
         const counts: Record<string, number> = {};
-        
+
         // Handle file upload questions
         if (q.type === 'file') {
           let filesUploaded = 0;
           let noFiles = 0;
-          
-          responses.forEach(res => {
+
+          responses.forEach((res) => {
             const ans = res.answers[String(q.id)];
             if (ans && typeof ans === 'object' && ans.type === 'file') {
               filesUploaded++;
@@ -143,27 +104,29 @@ const Responses: React.FC = () => {
               noFiles++;
             }
           });
-          
+
           return {
             question: q.text,
             type: 'file',
             options: [
               {
                 label: 'Files Uploaded',
-                percent: responses.length ? Math.round((filesUploaded / responses.length) * 100) : 0,
+                percent: responses.length
+                  ? Math.round((filesUploaded / responses.length) * 100)
+                  : 0,
                 count: filesUploaded,
               },
               {
                 label: 'No Files',
                 percent: responses.length ? Math.round((noFiles / responses.length) * 100) : 0,
                 count: noFiles,
-              }
+              },
             ],
           };
         }
-        
+
         // Handle regular questions (radio, checkbox, multiple)
-        responses.forEach(res => {
+        responses.forEach((res) => {
           const ans = res.answers[String(q.id)];
           if (ans) {
             if (Array.isArray(ans)) {
@@ -191,25 +154,28 @@ const Responses: React.FC = () => {
 
   // Calculate quarterly response data
   const getQuarterlyData = () => {
-    const quarterlyData: Record<string, { BSIT: number; BSIS: number; 'BIT-CT': number; total: number }> = {
-      'Q1': { BSIT: 0, BSIS: 0, 'BIT-CT': 0, total: 0 },
-      'Q2': { BSIT: 0, BSIS: 0, 'BIT-CT': 0, total: 0 },
-      'Q3': { BSIT: 0, BSIS: 0, 'BIT-CT': 0, total: 0 },
-      'Q4': { BSIT: 0, BSIS: 0, 'BIT-CT': 0, total: 0 }
+    const quarterlyData: Record<
+      string,
+      { BSIT: number; BSIS: number; 'BIT-CT': number; total: number }
+    > = {
+      Q1: { BSIT: 0, BSIS: 0, 'BIT-CT': 0, total: 0 },
+      Q2: { BSIT: 0, BSIS: 0, 'BIT-CT': 0, total: 0 },
+      Q3: { BSIT: 0, BSIS: 0, 'BIT-CT': 0, total: 0 },
+      Q4: { BSIT: 0, BSIS: 0, 'BIT-CT': 0, total: 0 },
     };
 
-    responses.forEach(res => {
+    responses.forEach((res) => {
       const responseDate = new Date(res.created_at || res.submitted_at || Date.now());
       const month = responseDate.getMonth();
-      
+
       // Find the corresponding alumni user to get the course
-      const alumniUser = alumniUsers.find(user => user.id === res.user_id);
+      const alumniUser = alumniUsers.find((user) => user.id === res.user_id);
       const course = alumniUser?.course || 'Unknown';
-      
+
       console.log('Response user_id:', res.user_id);
       console.log('Found alumni user:', alumniUser);
       console.log('Course from alumni record:', course);
-      
+
       // Determine quarter
       let quarter: string;
       if (month >= 0 && month <= 2) quarter = 'Q1';
@@ -220,13 +186,23 @@ const Responses: React.FC = () => {
       // Update counts with course from alumni user record
       if (quarterlyData[quarter]) {
         const courseUpper = course.toString().toUpperCase();
-        if (courseUpper.includes('BSIT') || courseUpper.includes('BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY')) {
+        if (
+          courseUpper.includes('BSIT') ||
+          courseUpper.includes('BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY')
+        ) {
           quarterlyData[quarter].BSIT++;
           console.log('Counted as BSIT:', course);
-        } else if (courseUpper.includes('BSIS') || courseUpper.includes('BACHELOR OF SCIENCE IN INFORMATION SYSTEMS')) {
+        } else if (
+          courseUpper.includes('BSIS') ||
+          courseUpper.includes('BACHELOR OF SCIENCE IN INFORMATION SYSTEMS')
+        ) {
           quarterlyData[quarter].BSIS++;
           console.log('Counted as BSIS:', course);
-        } else if (courseUpper.includes('BIT-CT') || courseUpper.includes('BACHELOR OF INDUSTRIAL TECHNOLOGY') || courseUpper.includes('COMPUTER TECHNOLOGY')) {
+        } else if (
+          courseUpper.includes('BIT-CT') ||
+          courseUpper.includes('BACHELOR OF INDUSTRIAL TECHNOLOGY') ||
+          courseUpper.includes('COMPUTER TECHNOLOGY')
+        ) {
           quarterlyData[quarter]['BIT-CT']++;
           console.log('Counted as BIT-CT:', course);
         } else {
@@ -257,25 +233,29 @@ const Responses: React.FC = () => {
         {/* Header */}
         <div className="card response-header-card">
           <div className="response-header">
-            <h3>No. of Responses: {responses.length} (Batch {targetBatchYear})</h3>
+            <h3>
+              No. of Responses: {responses.length} (Batch {targetBatchYear})
+            </h3>
             <button
               className={`toggle-button ${accepting ? 'active' : 'inactive'}`}
               onClick={async () => {
                 if (!trackerFormId) return;
                 try {
-                const newAccepting = !accepting;
-                setAccepting(newAccepting);
-                  
-                  const data = await trackerApi.updateAcceptingStatus(trackerFormId, newAccepting);
-                  
+                  const newAccepting = !accepting;
+                  setAccepting(newAccepting);
+                  const data = await trackerApi.updateAcceptingStatus(
+                    trackerFormId as number,
+                    newAccepting
+                  );
                   if (data.success) {
-                    // Re-fetch backend value to ensure sync
-                    const aData = await trackerApi.getAcceptingStatus(trackerFormId);
-                    if (aData && typeof aData.accepting_responses === 'boolean') {
-                      setAccepting(aData.accepting_responses);
-                    } else {
-                      console.warn('Invalid accepting state data received:', aData);
-                    }
+                    await Promise.all([
+                      queryClient.invalidateQueries({
+                        queryKey: ['tracker', 'accepting', trackerFormId],
+                      }),
+                      queryClient.invalidateQueries({
+                        queryKey: ['tracker', 'responses', targetBatchYear],
+                      }),
+                    ]);
                   } else {
                     throw new Error(data.message || 'Failed to update accepting state');
                   }
@@ -321,99 +301,126 @@ const Responses: React.FC = () => {
             <div className="card">
               <h3>Quarterly Response Tracker (Batch {targetBatchYear})</h3>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ 
-                  width: '100%', 
-                  borderCollapse: 'collapse', 
-                  marginTop: '12px',
-                  fontSize: '1rem'
-                }}>
+                <table
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    marginTop: '12px',
+                    fontSize: '1rem',
+                  }}
+                >
                   <thead>
-                    <tr style={{ 
-                      backgroundColor: '#f8f9fa', 
-                      borderBottom: '2px solid #dee2e6' 
-                    }}>
-                      <th style={{ 
-                        padding: '12px 8px', 
-                        textAlign: 'left', 
-                        fontWeight: '600',
-                        color: '#1e4c7a'
-                      }}>
+                    <tr
+                      style={{
+                        backgroundColor: '#f8f9fa',
+                        borderBottom: '2px solid #dee2e6',
+                      }}
+                    >
+                      <th
+                        style={{
+                          padding: '12px 8px',
+                          textAlign: 'left',
+                          fontWeight: '600',
+                          color: '#1e4c7a',
+                        }}
+                      >
                         Quarter
                       </th>
-                      <th style={{ 
-                        padding: '12px 8px', 
-                        textAlign: 'center', 
-                        fontWeight: '600',
-                        color: '#1e4c7a'
-                      }}>
+                      <th
+                        style={{
+                          padding: '12px 8px',
+                          textAlign: 'center',
+                          fontWeight: '600',
+                          color: '#1e4c7a',
+                        }}
+                      >
                         BSIT
                       </th>
-                      <th style={{ 
-                        padding: '12px 8px', 
-                        textAlign: 'center', 
-                        fontWeight: '600',
-                        color: '#1e4c7a'
-                      }}>
+                      <th
+                        style={{
+                          padding: '12px 8px',
+                          textAlign: 'center',
+                          fontWeight: '600',
+                          color: '#1e4c7a',
+                        }}
+                      >
                         BSIS
                       </th>
-                      <th style={{ 
-                        padding: '12px 8px', 
-                        textAlign: 'center', 
-                        fontWeight: '600',
-                        color: '#1e4c7a'
-                      }}>
+                      <th
+                        style={{
+                          padding: '12px 8px',
+                          textAlign: 'center',
+                          fontWeight: '600',
+                          color: '#1e4c7a',
+                        }}
+                      >
                         BIT-CT
                       </th>
-                      <th style={{ 
-                        padding: '12px 8px', 
-                        textAlign: 'center', 
-                        fontWeight: '600',
-                        color: '#1e4c7a'
-                      }}>
+                      <th
+                        style={{
+                          padding: '12px 8px',
+                          textAlign: 'center',
+                          fontWeight: '600',
+                          color: '#1e4c7a',
+                        }}
+                      >
                         Total
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {Object.entries(quarterlyData).map(([quarter, data]) => (
-                      <tr key={quarter} style={{ 
-                        borderBottom: '1px solid #dee2e6',
-                        backgroundColor: data.total > 0 ? '#f8f9ff' : 'transparent'
-                      }}>
-                        <td style={{ 
-                          padding: '12px 8px', 
-                          fontWeight: '500',
-                          color: '#164B87'
-                        }}>
+                      <tr
+                        key={quarter}
+                        style={{
+                          borderBottom: '1px solid #dee2e6',
+                          backgroundColor: data.total > 0 ? '#f8f9ff' : 'transparent',
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: '12px 8px',
+                            fontWeight: '500',
+                            color: '#164B87',
+                          }}
+                        >
                           {quarter}
                         </td>
-                        <td style={{ 
-                          padding: '12px 8px', 
-                          textAlign: 'center',
-                          color: data.BSIT > 0 ? '#28a745' : '#6c757d'
-                        }}>
+                        <td
+                          style={{
+                            padding: '12px 8px',
+                            textAlign: 'center',
+                            color: data.BSIT > 0 ? '#28a745' : '#6c757d',
+                          }}
+                        >
                           {data.BSIT}
                         </td>
-                        <td style={{ 
-                          padding: '12px 8px', 
-                          textAlign: 'center',
-                          color: data.BSIS > 0 ? '#28a745' : '#6c757d'
-                        }}>
+                        <td
+                          style={{
+                            padding: '12px 8px',
+                            textAlign: 'center',
+                            color: data.BSIS > 0 ? '#28a745' : '#6c757d',
+                          }}
+                        >
                           {data.BSIS}
                         </td>
-                        <td style={{ 
-                          padding: '12px 8px', 
-                          textAlign: 'center',
-                          color: data['BIT-CT'] > 0 ? '#28a745' : '#6c757d'
-                        }}>
+                        <td
+                          style={{
+                            padding: '12px 8px',
+                            textAlign: 'center',
+                            color: data['BIT-CT'] > 0 ? '#28a745' : '#6c757d',
+                          }}
+                        >
                           {data['BIT-CT']}
                         </td>
-                        <td style={{ 
-                          padding: '12px 8px', 
-                          textAlign: 'center',
-                          fontWeight: '600',
-                          color: data.total > 0 ? '#1e4c7a' : '#6c757d'
-                        }}>
+                        <td
+                          style={{
+                            padding: '12px 8px',
+                            textAlign: 'center',
+                            fontWeight: '600',
+                            color: data.total > 0 ? '#1e4c7a' : '#6c757d',
+                          }}
+                        >
                           {data.total}
                         </td>
                       </tr>
@@ -421,58 +428,69 @@ const Responses: React.FC = () => {
                   </tbody>
                 </table>
               </div>
-              <div style={{ 
-                marginTop: '12px', 
-                padding: '8px 12px', 
-                backgroundColor: '#e3f2fd', 
-                borderRadius: '4px',
-                fontSize: '1rem',
-                color: '#1565c0'
-              }}>
-                <strong>Total Responses:</strong> {responses.length} | 
-                <strong> BSIT:</strong> {Object.values(quarterlyData).reduce((sum, q) => sum + q.BSIT, 0)} | 
-                <strong> BSIS:</strong> {Object.values(quarterlyData).reduce((sum, q) => sum + q.BSIS, 0)} | 
-                <strong> BIT-CT:</strong> {Object.values(quarterlyData).reduce((sum, q) => sum + q['BIT-CT'], 0)}
+              <div
+                style={{
+                  marginTop: '12px',
+                  padding: '8px 12px',
+                  backgroundColor: '#e3f2fd',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  color: '#1565c0',
+                }}
+              >
+                <strong>Total Responses:</strong> {responses.length} |<strong> BSIT:</strong>{' '}
+                {Object.values(quarterlyData).reduce((sum, q) => sum + q.BSIT, 0)} |
+                <strong> BSIS:</strong>{' '}
+                {Object.values(quarterlyData).reduce((sum, q) => sum + q.BSIS, 0)} |
+                <strong> BIT-CT:</strong>{' '}
+                {Object.values(quarterlyData).reduce((sum, q) => sum + q['BIT-CT'], 0)}
               </div>
             </div>
 
             {/* Question Summaries */}
             {summaryData.map((q, index) => (
-            <div key={index} className="card">
+              <div key={index} className="card">
                 <h3>
                   {q.question}
                   {q.type === 'file' && (
-                    <span style={{ 
-                      marginLeft: '8px', 
-                      fontSize: '14px', 
-                      color: '#1e4c7a', 
-                      backgroundColor: '#e3f2fd', 
-                      padding: '2px 8px', 
-                      borderRadius: '12px',
-                      fontWeight: 'normal'
-                    }}>
+                    <span
+                      style={{
+                        marginLeft: '8px',
+                        fontSize: '14px',
+                        color: '#1e4c7a',
+                        backgroundColor: '#e3f2fd',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontWeight: 'normal',
+                      }}
+                    >
                       📎 File Upload
                     </span>
                   )}
                 </h3>
-              {q.options.map((opt: {label: string, count: number, percent: number}, idx: number) => (
-                <div key={idx} className="bar-group">
-                  <span>
-                    {opt.label}: {opt.count} ({opt.percent}%)
-                  </span>
-                  <div className="bar-container">
-                    <div
-                      className="bar-fill"
-                        style={{ 
-                          width: `${opt.percent}%`,
-                          backgroundColor: q.type === 'file' && opt.label === 'Files Uploaded' ? '#28a745' : undefined
-                        }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
+                {q.options.map(
+                  (opt: { label: string; count: number; percent: number }, idx: number) => (
+                    <div key={idx} className="bar-group">
+                      <span>
+                        {opt.label}: {opt.count} ({opt.percent}%)
+                      </span>
+                      <div className="bar-container">
+                        <div
+                          className="bar-fill"
+                          style={{
+                            width: `${opt.percent}%`,
+                            backgroundColor:
+                              q.type === 'file' && opt.label === 'Files Uploaded'
+                                ? '#28a745'
+                                : undefined,
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            ))}
           </>
         )}
 
@@ -482,7 +500,7 @@ const Responses: React.FC = () => {
             <div style={{ marginBottom: 12, textAlign: 'center' }}>
               <button
                 className="action-button"
-                onClick={() => setCurrentIndex(i => Math.max(i - 1, 0))}
+                onClick={() => setCurrentIndex((i) => Math.max(i - 1, 0))}
                 disabled={currentIndex === 0}
                 style={{ marginRight: 16 }}
               >
@@ -493,7 +511,7 @@ const Responses: React.FC = () => {
               </span>
               <button
                 className="action-button"
-                onClick={() => setCurrentIndex(i => Math.min(i + 1, responses.length - 1))}
+                onClick={() => setCurrentIndex((i) => Math.min(i + 1, responses.length - 1))}
                 disabled={currentIndex === responses.length - 1}
                 style={{ marginLeft: 16 }}
               >
@@ -504,10 +522,24 @@ const Responses: React.FC = () => {
               {(() => {
                 const res = responses[currentIndex];
                 const allAnswerKeys = Object.keys(res.answers || {});
-                const userFieldKeys = allAnswerKeys.filter(k => [
-                  'First Name', 'Middle Name', 'Last Name', 'Gender', 'Birthdate', 'Phone Number', 'Address', 'Social Media', 'Civil Status', 'Age', 'Email', 'Program Name', 'Status'
-                ].includes(k));
-                const otherKeys = allAnswerKeys.filter(k => !userFieldKeys.includes(k));
+                const userFieldKeys = allAnswerKeys.filter((k) =>
+                  [
+                    'First Name',
+                    'Middle Name',
+                    'Last Name',
+                    'Gender',
+                    'Birthdate',
+                    'Phone Number',
+                    'Address',
+                    'Social Media',
+                    'Civil Status',
+                    'Age',
+                    'Email',
+                    'Program Name',
+                    'Status',
+                  ].includes(k)
+                );
+                const otherKeys = allAnswerKeys.filter((k) => !userFieldKeys.includes(k));
                 return (
                   <div>
                     {/* Show user fields first */}
@@ -521,18 +553,21 @@ const Responses: React.FC = () => {
                       const questionObj = allQuestions.find((q: any) => String(q.id) === k);
                       const label = questionObj ? questionObj.text : k;
                       const answer = res.answers[k];
-                      
+
                       // Handle file uploads
                       if (answer && typeof answer === 'object' && answer.type === 'file') {
                         return (
-                          <div key={userFieldKeys.length + i} style={{ marginBottom: '12px', fontSize: '1rem' }}>
+                          <div
+                            key={userFieldKeys.length + i}
+                            style={{ marginBottom: '12px', fontSize: '1rem' }}
+                          >
                             <strong>{label}:</strong>
                             <div className="file-display">
                               <div className="file-header">
                                 <span style={{ fontSize: '16px' }}>📎</span>
-                                <a 
-                                  href={`http://127.0.0.1:8000${answer.file_url}`} 
-                                  target="_blank" 
+                                <a
+                                  href={`http://127.0.0.1:8000${answer.file_url}`}
+                                  target="_blank"
                                   rel="noopener noreferrer"
                                   className="file-link"
                                 >
@@ -542,18 +577,26 @@ const Responses: React.FC = () => {
                                   ({(answer.file_size / 1024 / 1024).toFixed(2)} MB)
                                 </span>
                               </div>
-                              <div className="file-date">
-                                Uploaded: {answer.uploaded_at}
-                              </div>
+                              <div className="file-date">Uploaded: {answer.uploaded_at}</div>
                             </div>
                           </div>
                         );
                       }
-                      
+
                       // Handle regular answers
                       return (
-                        <div key={userFieldKeys.length + i} style={{ marginBottom: '12px', fontSize: '1rem' }}>
-                          <strong>{label}:</strong> {Array.isArray(answer) ? answer.join(', ') : (answer ? answer : <em>No answer</em>)}
+                        <div
+                          key={userFieldKeys.length + i}
+                          style={{ marginBottom: '12px', fontSize: '1rem' }}
+                        >
+                          <strong>{label}:</strong>{' '}
+                          {Array.isArray(answer) ? (
+                            answer.join(', ')
+                          ) : answer ? (
+                            answer
+                          ) : (
+                            <em>No answer</em>
+                          )}
                         </div>
                       );
                     })}
@@ -571,12 +614,12 @@ const Responses: React.FC = () => {
         {activeTab === 'files' && (
           <div className="card">
             <h3>File Documents Management</h3>
-            
+
             {/* Category Filter */}
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontWeight: 500, marginRight: 12 }}>Filter by Document Type:</label>
-              <select 
-                value={selectedFileCategory} 
+              <select
+                value={selectedFileCategory}
                 onChange={(e) => setSelectedFileCategory(e.target.value)}
                 style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #ddd' }}
               >
@@ -590,16 +633,32 @@ const Responses: React.FC = () => {
             </div>
 
             {/* File Statistics Summary */}
-            <div style={{ marginBottom: 20, padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+            <div
+              style={{
+                marginBottom: 20,
+                padding: '12px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '4px',
+              }}
+            >
               <h4>Document Summary</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '12px',
+                }}
+              >
                 {fileStats.map((stat, index) => (
-                  <div key={index} style={{ 
-                    padding: '8px', 
-                    backgroundColor: 'white', 
-                    borderRadius: '4px', 
-                    border: '1px solid #dee2e6' 
-                  }}>
+                  <div
+                    key={index}
+                    style={{
+                      padding: '8px',
+                      backgroundColor: 'white',
+                      borderRadius: '4px',
+                      border: '1px solid #dee2e6',
+                    }}
+                  >
                     <strong>{stat.question_text}</strong>
                     <div>Files: {stat.total_files}</div>
                     <div>Size: {stat.total_size_mb} MB</div>
@@ -612,20 +671,32 @@ const Responses: React.FC = () => {
             {/* File List */}
             <div>
               <h4>Document Files</h4>
-              <div style={{ maxHeight: '600px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+              <div
+                style={{
+                  maxHeight: '600px',
+                  overflowY: 'auto',
+                  border: '1px solid #dee2e6',
+                  borderRadius: '4px',
+                }}
+              >
                 {fileStats
-                  .filter(stat => selectedFileCategory === 'all' || stat.question_text === selectedFileCategory)
+                  .filter(
+                    (stat) =>
+                      selectedFileCategory === 'all' || stat.question_text === selectedFileCategory
+                  )
                   .map((stat, statIndex) => (
                     <div key={statIndex} style={{ marginBottom: 24, padding: '16px' }}>
-                      <h5 style={{ 
-                        color: '#1e4c7a', 
-                        borderBottom: '2px solid #1e4c7a', 
-                        paddingBottom: '4px',
-                        marginBottom: '12px'
-                      }}>
+                      <h5
+                        style={{
+                          color: '#1e4c7a',
+                          borderBottom: '2px solid #1e4c7a',
+                          paddingBottom: '4px',
+                          marginBottom: '12px',
+                        }}
+                      >
                         {stat.question_text}
                       </h5>
-                      
+
                       {/* Print Button for this category */}
                       <button
                         className="action-button"
@@ -634,16 +705,16 @@ const Responses: React.FC = () => {
                             // Import jsPDF dynamically
                             const { default: jsPDF } = await import('jspdf');
                             const doc = new jsPDF();
-                            
+
                             // Set up the document header
                             doc.setFontSize(16);
                             doc.setFont('helvetica', 'bold');
                             doc.text(stat.question_text, 20, 30);
-                            
+
                             // Add files with images
                             let yPosition = 50;
                             let processedFiles = 0;
-                            
+
                             const processNextFile = (index: number) => {
                               if (index >= stat.files.length) {
                                 // All files processed, save the PDF
@@ -651,90 +722,95 @@ const Responses: React.FC = () => {
                                 doc.save(filename);
                                 return;
                               }
-                              
+
                               const file = stat.files[index];
-                              
+
                               // Check if we need a new page
                               if (yPosition > 250) {
                                 doc.addPage();
                                 yPosition = 30;
                               }
-                              
+
                               // Add alumni name
                               doc.setFontSize(12);
                               doc.setFont('helvetica', 'bold');
                               doc.text(`${index + 1}. ${file.user}`, 20, yPosition);
-                              
+
                               // Try to add the image
                               try {
                                 const img = new Image();
                                 img.crossOrigin = 'anonymous';
-                                
+
                                 img.onload = () => {
                                   // Calculate image dimensions to fit on page
                                   const maxWidth = 160;
                                   const maxHeight = 120;
                                   let imgWidth = img.width;
                                   let imgHeight = img.height;
-                                  
+
                                   // Scale down if image is too large
                                   if (imgWidth > maxWidth) {
                                     const ratio = maxWidth / imgWidth;
                                     imgWidth = maxWidth;
                                     imgHeight = imgHeight * ratio;
                                   }
-                                  
+
                                   if (imgHeight > maxHeight) {
                                     const ratio = maxHeight / imgHeight;
                                     imgHeight = maxHeight;
                                     imgWidth = imgWidth * ratio;
                                   }
-                                  
+
                                   // Check if image will fit on current page
                                   if (yPosition + 15 + imgHeight > 270) {
                                     doc.addPage();
                                     yPosition = 30;
                                   }
-                                  
+
                                   // Add image to PDF
-                                  doc.addImage(img, 'JPEG', 25, yPosition + 15, imgWidth, imgHeight);
-                                  
+                                  doc.addImage(
+                                    img,
+                                    'JPEG',
+                                    25,
+                                    yPosition + 15,
+                                    imgWidth,
+                                    imgHeight
+                                  );
+
                                   // Move position for next file (add extra spacing)
                                   yPosition += 15 + imgHeight + 40;
-                                  
+
                                   // Process next file
                                   processNextFile(index + 1);
                                 };
-                                
+
                                 img.onerror = () => {
                                   // If image fails to load, add a placeholder
                                   doc.setFontSize(10);
                                   doc.setFont('helvetica', 'italic');
                                   doc.text('[Image could not be loaded]', 25, yPosition + 15);
                                   yPosition += 60; // Add spacing for placeholder
-                                  
+
                                   // Process next file
                                   processNextFile(index + 1);
                                 };
-                                
+
                                 // Set image source
                                 img.src = `http://127.0.0.1:8000${file.file_url}`;
-                                
                               } catch (error) {
                                 console.error('Error loading image:', error);
                                 doc.setFontSize(10);
                                 doc.setFont('helvetica', 'italic');
                                 doc.text('[Image could not be loaded]', 25, yPosition + 15);
                                 yPosition += 60; // Add spacing for error
-                                
+
                                 // Process next file
                                 processNextFile(index + 1);
                               }
                             };
-                            
+
                             // Start processing files
                             processNextFile(0);
-                            
                           } catch (error) {
                             console.error('Error generating PDF:', error);
                             alert('Error generating PDF. Please try again.');
@@ -748,24 +824,34 @@ const Responses: React.FC = () => {
                       {/* File List */}
                       <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                         {stat.files.map((file: any, fileIndex: number) => (
-                          <div key={fileIndex} style={{ 
-                            padding: '12px', 
-                            border: '1px solid #dee2e6', 
-                            borderRadius: '4px', 
-                            marginBottom: '8px',
-                            backgroundColor: 'white'
-                          }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div
+                            key={fileIndex}
+                            style={{
+                              padding: '12px',
+                              border: '1px solid #dee2e6',
+                              borderRadius: '4px',
+                              marginBottom: '8px',
+                              backgroundColor: 'white',
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                              }}
+                            >
                               <div>
                                 <strong>{file.filename}</strong>
                                 <div style={{ fontSize: '14px', color: '#666', marginTop: '4px' }}>
-                                  Uploaded by: {file.user} | Size: {file.file_size_mb} MB | Date: {file.uploaded_at}
+                                  Uploaded by: {file.user} | Size: {file.file_size_mb} MB | Date:{' '}
+                                  {file.uploaded_at}
                                 </div>
                               </div>
                               <div>
-                                <a 
-                                  href={`http://127.0.0.1:8000${file.file_url}`} 
-                                  target="_blank" 
+                                <a
+                                  href={`http://127.0.0.1:8000${file.file_url}`}
+                                  target="_blank"
                                   rel="noopener noreferrer"
                                   className="file-link"
                                   style={{ marginRight: '8px' }}
@@ -778,41 +864,41 @@ const Responses: React.FC = () => {
                                       // Import jsPDF dynamically
                                       const { default: jsPDF } = await import('jspdf');
                                       const doc = new jsPDF();
-                                      
+
                                       // Set up the document header
                                       doc.setFontSize(16);
                                       doc.setFont('helvetica', 'bold');
                                       doc.text(stat.question_text, 20, 30);
-                                      
+
                                       // Add alumni name and file info
                                       doc.setFontSize(12);
                                       doc.setFont('helvetica', 'bold');
                                       doc.text(`1. ${file.user}`, 20, 50);
-                                      
+
                                       // Try to add the image
                                       const img = new Image();
                                       img.crossOrigin = 'anonymous';
-                                      
+
                                       img.onload = () => {
                                         // Calculate image dimensions to fit on page
                                         const maxWidth = 160;
                                         const maxHeight = 150;
                                         let imgWidth = img.width;
                                         let imgHeight = img.height;
-                                        
+
                                         // Scale down if image is too large
                                         if (imgWidth > maxWidth) {
                                           const ratio = maxWidth / imgWidth;
                                           imgWidth = maxWidth;
                                           imgHeight = imgHeight * ratio;
                                         }
-                                        
+
                                         if (imgHeight > maxHeight) {
                                           const ratio = maxHeight / imgHeight;
                                           imgHeight = maxHeight;
                                           imgWidth = imgWidth * ratio;
                                         }
-                                        
+
                                         // Check if image will fit on current page
                                         if (65 + imgHeight > 270) {
                                           doc.addPage();
@@ -824,41 +910,40 @@ const Responses: React.FC = () => {
                                           doc.setFont('helvetica', 'bold');
                                           doc.text(`1. ${file.user}`, 20, 50);
                                         }
-                                        
+
                                         // Add image to PDF
                                         doc.addImage(img, 'JPEG', 25, 65, imgWidth, imgHeight);
-                                        
+
                                         // Save the PDF
                                         const filename = `${file.filename.replace(/[^a-zA-Z0-9.]/g, '_')}.pdf`;
                                         doc.save(filename);
                                       };
-                                      
+
                                       img.onerror = () => {
                                         // If image fails to load, add a note and save
                                         doc.setFontSize(10);
                                         doc.setFont('helvetica', 'italic');
                                         doc.text('[Image could not be loaded]', 25, 65);
-                                        
+
                                         // Save the PDF
                                         const filename = `${file.filename.replace(/[^a-zA-Z0-9.]/g, '_')}_info.pdf`;
                                         doc.save(filename);
                                       };
-                                      
+
                                       // Set image source
                                       img.src = `http://127.0.0.1:8000${file.file_url}`;
-                                      
                                     } catch (error) {
                                       console.error('Error generating PDF:', error);
                                       alert('Error generating PDF. Please try again.');
                                     }
                                   }}
-                                  style={{ 
-                                    padding: '4px 8px', 
-                                    backgroundColor: '#28a745', 
-                                    color: 'white', 
-                                    border: 'none', 
+                                  style={{
+                                    padding: '4px 8px',
+                                    backgroundColor: '#28a745',
+                                    color: 'white',
+                                    border: 'none',
                                     borderRadius: '4px',
-                                    cursor: 'pointer'
+                                    cursor: 'pointer',
                                   }}
                                 >
                                   💾 Save as PDF

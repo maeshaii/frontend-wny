@@ -99,9 +99,7 @@ export default function DetailsTable({ onBack, selectedYear }: DetailsTableProps
   if (loading) {
     return (
       <div style={styles.detailsTable}>
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-          Loading OJT data...
-        </div>
+        <div style={{ textAlign: 'center', padding: '40px' }}>Loading OJT data...</div>
       </div>
     );
   }
@@ -142,7 +140,9 @@ export default function DetailsTable({ onBack, selectedYear }: DetailsTableProps
       </table>
 
       <div style={styles.tableActions}>
-        <button style={styles.backBtn} onClick={onBack}>Back</button>
+        <button style={styles.backBtn} onClick={onBack}>
+          Back
+        </button>
         <button style={styles.sendBtn}>Send to Admin</button>
       </div>
     </div>

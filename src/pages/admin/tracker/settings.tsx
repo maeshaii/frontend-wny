@@ -70,15 +70,16 @@ const Settings: React.FC = () => {
   }, []); // Remove targetBatchYear from dependencies
 
   // Determine responded and not responded alumni by user_id
-  const respondedIds = new Set(responses.map(r => r.user_id));
-  const responded = alumni.filter(a => respondedIds.has(a.id));
-  const notResponded = alumni.filter(a => !respondedIds.has(a.id));
+  const respondedIds = new Set(responses.map((r) => r.user_id));
+  const responded = alumni.filter((a) => respondedIds.has(a.id));
+  const notResponded = alumni.filter((a) => !respondedIds.has(a.id));
 
   // Filter alumni based on search term and selected course
   const filterAlumni = (alumniList: AlumniUser[]) => {
-    return alumniList.filter(user => {
-      const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    return alumniList.filter((user) => {
+      const matchesSearch =
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesCourse = selectedCourse === 'All' || user.course === selectedCourse;
       return matchesSearch && matchesCourse;
     });
@@ -86,8 +87,9 @@ const Settings: React.FC = () => {
 
   // Filter responded alumni based on selected course
   const filterRespondedAlumni = (alumniList: AlumniUser[]) => {
-    return alumniList.filter(user => {
-      const matchesCourse = selectedRespondedCourse === 'All' || user.course === selectedRespondedCourse;
+    return alumniList.filter((user) => {
+      const matchesCourse =
+        selectedRespondedCourse === 'All' || user.course === selectedRespondedCourse;
       return matchesCourse;
     });
   };
@@ -105,16 +107,16 @@ const Settings: React.FC = () => {
 
   const handleToggleUser = (index: number) => {
     setSelectedUsers((prev) =>
-      prev.includes(index)
-        ? prev.filter((i) => i !== index)
-        : [...prev, index]
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
     );
   };
 
   // Editable message and title logic
   const [title, setTitle] = useState<string>('Please Fill Out the Tracker Form');
   const [editTitle, setEditTitle] = useState<string>(title);
-  const [message, setMessage] = useState<string>(`Hi [User's Name],\n\nWe hope you're doing well! This is a gentle reminder to complete the required Tracker Form to help us keep everything on track and up to date.\n\nPlease take a few moments to fill it out by clicking the link below:\n👉 Fill Out the Tracker Form\n\nYour timely response is greatly appreciated and helps us stay aligned and organized.\nIf you have any questions or need assistance, feel free to reply to this message.\n\nThank you!\nBest regards,\nCCICT`);
+  const [message, setMessage] = useState<string>(
+    `Hi [User's Name],\n\nWe hope you're doing well! This is a gentle reminder to complete the required Tracker Form to help us keep everything on track and up to date.\n\nPlease take a few moments to fill it out by clicking the link below:\n👉 Fill Out the Tracker Form\n\nYour timely response is greatly appreciated and helps us stay aligned and organized.\nIf you have any questions or need assistance, feel free to reply to this message.\n\nThank you!\nBest regards,\nCCICT`
+  );
   const [editMessage, setEditMessage] = useState<string>(message);
   const [editing, setEditing] = useState<boolean>(false);
 
@@ -122,7 +124,7 @@ const Settings: React.FC = () => {
     try {
       // Get selected users who haven't responded
       const selectedAlumni = filteredNotResponded
-        .map((user, idx) => selectedUsers.includes(idx) ? user : null)
+        .map((user, idx) => (selectedUsers.includes(idx) ? user : null))
         .filter((user): user is AlumniUser => user !== null);
 
       if (selectedAlumni.length === 0) {
@@ -132,7 +134,7 @@ const Settings: React.FC = () => {
 
       let sent = 0;
       let failed = 0;
-      
+
       for (const user of selectedAlumni) {
         try {
           // Generate unique link
@@ -143,10 +145,7 @@ const Settings: React.FC = () => {
           let personalizedMsg = message.replace(/\[User's Name\]/g, user.name);
           // Replace the '👉 Fill Out the Tracker Form' line with a clickable link with the same text
           const linkHtml = `<a href='${trackerLink}' style='color:#1e4c7a;font-weight:600;text-decoration:underline;cursor:pointer;'>👉 Fill Out the Tracker Form</a>`;
-          personalizedMsg = personalizedMsg.replace(
-            '👉 Fill Out the Tracker Form',
-            linkHtml
-          );
+          personalizedMsg = personalizedMsg.replace('👉 Fill Out the Tracker Form', linkHtml);
           // Send reminder to this user
           const result = await sendReminders([user.id], personalizedMsg, title);
           if (result.success) {
@@ -160,7 +159,7 @@ const Settings: React.FC = () => {
           console.error(`Error sending reminder to ${user.name}:`, error);
         }
       }
-      
+
       if (failed > 0) {
         alert(`Reminders sent: ${sent} of ${selectedAlumni.length}\nFailed: ${failed}`);
       } else {
@@ -218,7 +217,7 @@ const Settings: React.FC = () => {
               <input
                 type="text"
                 value={editTitle}
-                onChange={e => setEditTitle(e.target.value)}
+                onChange={(e) => setEditTitle(e.target.value)}
                 className="form-title-input"
                 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}
               />
@@ -227,9 +226,13 @@ const Settings: React.FC = () => {
             )}
             <div style={{ display: 'flex', gap: '8px' }}>
               {!editing && (
-                <button className="button-edit" onClick={handleEdit}>Edit</button>
+                <button className="button-edit" onClick={handleEdit}>
+                  Edit
+                </button>
               )}
-              <button className="border-button" onClick={handleSend}>Send Form</button>
+              <button className="border-button" onClick={handleSend}>
+                Send Form
+              </button>
             </div>
           </div>
           <hr />
@@ -243,8 +246,12 @@ const Settings: React.FC = () => {
                 style={{ resize: 'none' }}
               />
               <div style={{ marginTop: 8 }}>
-                <button className="button-cancel" onClick={handleCancel} style={{ marginRight: 8 }}>Cancel</button>
-                <button className="button-update" onClick={handleUpdate}>Update</button>
+                <button className="button-cancel" onClick={handleCancel} style={{ marginRight: 8 }}>
+                  Cancel
+                </button>
+                <button className="button-update" onClick={handleUpdate}>
+                  Update
+                </button>
               </div>
             </>
           ) : (
@@ -253,7 +260,13 @@ const Settings: React.FC = () => {
               value={message}
               readOnly
               className="message-textarea"
-              style={{ background: '#f7fbff', color: '#164B87', cursor: 'default', pointerEvents: 'none', resize: 'none' }}
+              style={{
+                background: '#f7fbff',
+                color: '#164B87',
+                cursor: 'default',
+                pointerEvents: 'none',
+                resize: 'none',
+              }}
               tabIndex={-1}
             />
           )}
@@ -285,7 +298,7 @@ const Settings: React.FC = () => {
                   backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e")`,
                   backgroundRepeat: 'no-repeat',
                   backgroundPosition: 'right 8px center',
-                  backgroundSize: '14px'
+                  backgroundSize: '14px',
                 }}
                 onFocus={(e) => {
                   e.target.style.borderColor = '#80bdff';
@@ -303,7 +316,7 @@ const Settings: React.FC = () => {
               </select>
             </div>
           </div>
-          
+
           {loading ? (
             <div>Loading...</div>
           ) : filteredResponded.length === 0 ? (
@@ -323,7 +336,13 @@ const Settings: React.FC = () => {
                       <td>
                         <div className="user-info">
                           <img
-                            src={user.profile_pic ? (user.profile_pic.startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo}
+                            src={
+                              user.profile_pic
+                                ? user.profile_pic.startsWith('http')
+                                  ? user.profile_pic
+                                  : `http://127.0.0.1:8000${user.profile_pic}`
+                                : ctulogo
+                            }
                             alt="avatar"
                             style={{ width: 32, height: 32, borderRadius: '50%' }}
                             onError={(e) => {
@@ -333,12 +352,25 @@ const Settings: React.FC = () => {
                             }}
                           />
                           <div>
-                            <strong>{user.name && typeof user.name === 'object' ? JSON.stringify(user.name) : user.name || ''}</strong><br />
-                            <span>{user.email && typeof user.email === 'object' ? JSON.stringify(user.email) : user.email || ''}</span>
+                            <strong>
+                              {user.name && typeof user.name === 'object'
+                                ? JSON.stringify(user.name)
+                                : user.name || ''}
+                            </strong>
+                            <br />
+                            <span>
+                              {user.email && typeof user.email === 'object'
+                                ? JSON.stringify(user.email)
+                                : user.email || ''}
+                            </span>
                           </div>
                         </div>
                       </td>
-                      <td>{user.course && typeof user.course === 'object' ? JSON.stringify(user.course) : user.course || ''}</td>
+                      <td>
+                        {user.course && typeof user.course === 'object'
+                          ? JSON.stringify(user.course)
+                          : user.course || ''}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -355,15 +387,17 @@ const Settings: React.FC = () => {
               {selectedUsers.length === filteredNotResponded.length ? 'Unselect All' : 'Select All'}
             </button>
           </div>
-          
+
           {/* Search and Filter Controls */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '12px', 
-            alignItems: 'center', 
-            marginBottom: '16px', 
-            marginTop: '16px'
-          }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: '12px',
+              alignItems: 'center',
+              marginBottom: '16px',
+              marginTop: '16px',
+            }}
+          >
             <div style={{ flex: 1, position: 'relative' }}>
               <input
                 type="text"
@@ -381,7 +415,7 @@ const Settings: React.FC = () => {
                   fontFamily: "'Segoe UI', 'Roboto', 'Arial', sans-serif",
                   outline: 'none',
                   transition: 'all 0.2s ease',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
                 }}
                 onFocus={(e) => {
                   e.target.style.borderColor = '#80bdff';
@@ -392,14 +426,16 @@ const Settings: React.FC = () => {
                   e.target.style.boxShadow = 'none';
                 }}
               />
-              <div style={{
-                position: 'absolute',
-                left: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                fontSize: '1rem',
-                color: '#6c757d'
-              }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: '1rem',
+                  color: '#6c757d',
+                }}
+              >
                 🔍
               </div>
             </div>
@@ -425,7 +461,7 @@ const Settings: React.FC = () => {
                   backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e")`,
                   backgroundRepeat: 'no-repeat',
                   backgroundPosition: 'right 8px center',
-                  backgroundSize: '14px'
+                  backgroundSize: '14px',
                 }}
                 onFocus={(e) => {
                   e.target.style.borderColor = '#80bdff';
@@ -443,7 +479,7 @@ const Settings: React.FC = () => {
               </select>
             </div>
           </div>
-          
+
           {loading ? (
             <div>Loading...</div>
           ) : filteredNotResponded.length === 0 ? (
@@ -464,7 +500,13 @@ const Settings: React.FC = () => {
                       <td>
                         <div className="user-info">
                           <img
-                            src={user.profile_pic ? (user.profile_pic.startsWith('http') ? user.profile_pic : `http://127.0.0.1:8000${user.profile_pic}`) : ctulogo}
+                            src={
+                              user.profile_pic
+                                ? user.profile_pic.startsWith('http')
+                                  ? user.profile_pic
+                                  : `http://127.0.0.1:8000${user.profile_pic}`
+                                : ctulogo
+                            }
                             alt="avatar"
                             style={{ width: 32, height: 32, borderRadius: '50%' }}
                             onError={(e) => {
@@ -474,12 +516,25 @@ const Settings: React.FC = () => {
                             }}
                           />
                           <div>
-                            <strong>{user.name && typeof user.name === 'object' ? JSON.stringify(user.name) : user.name || ''}</strong><br />
-                            <span>{user.email && typeof user.email === 'object' ? JSON.stringify(user.email) : user.email || ''}</span>
+                            <strong>
+                              {user.name && typeof user.name === 'object'
+                                ? JSON.stringify(user.name)
+                                : user.name || ''}
+                            </strong>
+                            <br />
+                            <span>
+                              {user.email && typeof user.email === 'object'
+                                ? JSON.stringify(user.email)
+                                : user.email || ''}
+                            </span>
                           </div>
                         </div>
                       </td>
-                      <td>{user.course && typeof user.course === 'object' ? JSON.stringify(user.course) : user.course || ''}</td>
+                      <td>
+                        {user.course && typeof user.course === 'object'
+                          ? JSON.stringify(user.course)
+                          : user.course || ''}
+                      </td>
                       <td>
                         <input
                           type="checkbox"
@@ -489,7 +544,7 @@ const Settings: React.FC = () => {
                             width: '16px',
                             height: '16px',
                             cursor: 'pointer',
-                            accentColor: '#1e4c7a'
+                            accentColor: '#1e4c7a',
                           }}
                         />
                       </td>

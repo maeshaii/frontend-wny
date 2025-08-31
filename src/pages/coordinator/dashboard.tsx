@@ -340,8 +340,12 @@ export default function Dashboard() {
                 <div
                   style={{
                     ...styles.navItem,
-                    ...(link.label === 'Imports' && activePage === 'imports' ? styles.activeNavItem : {}),
-                    ...(link.label === 'Dashboard' && activePage === 'dashboard' ? styles.activeNavItem : {}),
+                    ...(link.label === 'Imports' && activePage === 'imports'
+                      ? styles.activeNavItem
+                      : {}),
+                    ...(link.label === 'Dashboard' && activePage === 'dashboard'
+                      ? styles.activeNavItem
+                      : {}),
                   }}
                   onClick={() => {
                     if (link.label === 'Dashboard') {
@@ -372,20 +376,14 @@ export default function Dashboard() {
           <div style={styles.actions}>
             {activePage === 'imports' && (
               <>
-                <button
-                  style={styles.statsBtn}
-                  onClick={() => setShowStats(!showStats)}
-                >
+                <button style={styles.statsBtn} onClick={() => setShowStats(!showStats)}>
                   {showStats ? 'Hide Statistics' : 'View Statistics'}
                 </button>
-                <button
-                  style={styles.importBtn}
-                  onClick={() => setShowModal(true)}
-                >
+                <button style={styles.importBtn} onClick={() => setShowModal(true)}>
                   Import OJT
                 </button>
                 <button
-                  style={{...styles.importBtn, marginLeft: '10px'}}
+                  style={{ ...styles.importBtn, marginLeft: '10px' }}
                   onClick={refreshOJTData}
                 >
                   Refresh
@@ -419,8 +417,8 @@ export default function Dashboard() {
                     onClick={() => setSelectedCard(yearData.year)}
                   >
                     <div style={styles.cardImage}></div>
-                    <p style={styles.cardText}>YEAR GRADUATED: {yearData.year}</p>
-                    <p style={styles.cardText}>Imported: {yearData.count}</p>
+                    <p style={styles.cardText}>CLASS OF {yearData.year}</p>
+                    <p style={styles.cardText}>Alumni: {yearData.count}</p>
                   </div>
                 ))
               )}
@@ -438,16 +436,16 @@ export default function Dashboard() {
             <h2 style={styles.modalH2}>Import OJT Training Data</h2>
 
             <label style={styles.modalLabel}>Batch Graduated</label>
-            <input 
-              type="text" 
-              placeholder="Enter batch year..." 
+            <input
+              type="text"
+              placeholder="Enter batch year..."
               style={styles.modalInput}
               value={batchYear}
               onChange={(e) => setBatchYear(e.target.value)}
             />
 
             <label style={styles.modalLabel}>Course</label>
-            <select 
+            <select
               style={styles.modalInput}
               value={course}
               onChange={(e) => setCourse(e.target.value)}
@@ -460,15 +458,16 @@ export default function Dashboard() {
             <label style={styles.modalLabel}>Upload File</label>
             <label style={styles.fileLabel}>
               {selectedFile ? selectedFile.name : 'Choose File'}
-              <input type="file" onChange={handleFileChange} style={styles.fileInput} accept=".xlsx,.xls" />
+              <input
+                type="file"
+                onChange={handleFileChange}
+                style={styles.fileInput}
+                accept=".xlsx,.xls"
+              />
             </label>
 
             <div style={styles.modalActions}>
-              <button 
-                style={styles.addBtn} 
-                onClick={handleImport}
-                disabled={importLoading}
-              >
+              <button style={styles.addBtn} onClick={handleImport} disabled={importLoading}>
                 {importLoading ? 'Importing...' : 'Import'}
               </button>
               <button

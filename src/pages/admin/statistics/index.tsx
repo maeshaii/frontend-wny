@@ -12,27 +12,31 @@ import {
   Cell,
 } from 'recharts';
 import Sidebar from '../global/sidebar';
-import { importAlumni, fetchAlumniStatistics, fetchAlumniEmploymentStats } from '../../../services/api';
+import {
+  importAlumni,
+  fetchAlumniStatistics,
+  fetchAlumniEmploymentStats,
+} from '../../../services/api';
 
 type EmploymentData = {
   category: string;
   count: number;
 };
 
-const courseOptions = ['ALL','BSIT', 'BSIS', 'BIT-CT'];
+const courseOptions = ['ALL', 'BSIT', 'BSIS', 'BIT-CT'];
 
 const initialData: EmploymentData[] = [
-  { category: 'Employed', count: 1350 },
-  { category: 'Unemployed', count: 950 },
-  { category: 'Absorb', count: 1250 },
-  { category: 'High Position', count: 950 },
+  { category: 'Pending', count: 0 },
+  { category: 'Employed', count: 0 },
+  { category: 'Unemployed', count: 0 },
+  { category: 'Absorb', count: 0 },
 ];
 
 const barColors: Record<string, string> = {
-  Employed: '#7C97A4',
-  Unemployed: '#1F4B7A',
-  Absorb: '#A3D9DF',
-  'High Position': '#0797D8',
+  Pending: '#EE82EE',
+  Employed: '#662d91',
+  Unemployed: '#800080',
+  Absorb: '#1d1160',
 };
 
 export default function Statistics() {
@@ -43,7 +47,7 @@ export default function Statistics() {
   const [selectedCourseImport, setSelectedCourseImport] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [lastImportResult, setLastImportResult] = useState<any>(null);
   const [yearOptions, setYearOptions] = useState<string[]>(['ALL']);
   const [stats, setStats] = useState<{ year: number; count: number }[]>([]);
@@ -80,10 +84,51 @@ export default function Statistics() {
     loadEmploymentStats();
   }, [selectedYear, selectedCourse]);
 
-  const chartData = Object.entries(employmentStats).length > 0
-    ? Object.entries(employmentStats).map(([category, count]) => ({ category, count }))
-    : initialData;
-  const maxCount = chartData.length > 0 ? Math.max(...chartData.map(d => d.count)) : 0;
+  // Helper: normalize arbitrary backend status keys to canonical buckets
+  const normalizeStatusCounts = (raw: { [key: string]: number } = {}) => {
+    const result: { [key: string]: number } = {
+      Employed: 0,
+      Unemployed: 0,
+      Absorb: 0,
+      Pending: 0,
+    };
+
+    Object.entries(raw || {}).forEach(([key, value]) => {
+      const k = (key || '').toString().toLowerCase();
+      const n = Number(value) || 0;
+      if (k.includes('unemploy')) {
+        result.Unemployed += n;
+      } else if (k.includes('employ')) {
+        // Count only non-unemployed employ terms
+        result.Employed += n;
+      } else if (k.includes('absorb')) {
+        result.Absorb += n;
+      } else if (k.includes('pending')) {
+        result.Pending += n;
+      } else if (k.includes('active')) {
+        // Treat 'active' user_status as Pending for the tracker context
+        result.Pending += n;
+      } else {
+        // Unknown bucket -> Pending by default
+        result.Pending += n;
+      }
+    });
+
+    return result;
+  };
+
+  // Build chart data from normalized buckets in a stable order
+  const chartData = (() => {
+    const counts = normalizeStatusCounts(employmentStats);
+    return [
+      { category: 'Pending', count: counts.Pending },
+      { category: 'Employed', count: counts.Employed },
+      { category: 'Unemployed', count: counts.Unemployed },
+      { category: 'Absorb', count: counts.Absorb },
+    ];
+  })();
+
+  const maxCount = chartData.length > 0 ? Math.max(...chartData.map((d) => d.count)) : 0;
   const maxTick = Math.ceil(maxCount / 10) * 10;
   const ticks = Array.from({ length: maxTick / 10 + 1 }, (_, i) => i * 10);
 
@@ -110,15 +155,34 @@ export default function Statistics() {
     setMessage(null);
     setLastImportResult(null);
 
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('batch_year', batchYear);
+    formData.append('course', selectedCourseImport);
+
+    const token = localStorage.getItem('accessToken');
     try {
-      const result = await importAlumni(selectedFile, batchYear, selectedCourseImport);
-      setLastImportResult(result);
-      if (result.success) {
-        setMessage({ 
-          type: 'success', 
-          text: `${result.message}. ${result.errors?.length > 0 ? `Errors: ${result.errors.length}` : ''}` 
-        });
-        // Reset form
+      const response = await fetch('http://localhost:8000/api/import-alumni/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const contentType = response.headers.get('content-type');
+      if (response.ok && contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+        // It's an Excel file, trigger download
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'alumni_passwords.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        setMessage({ type: 'success', text: 'Import successful! Passwords downloaded.' });
         setSelectedFile(null);
         setBatchYear('');
         setSelectedCourseImport('');
@@ -128,7 +192,25 @@ export default function Statistics() {
           setLastImportResult(null);
         }, 3000);
       } else {
-        setMessage({ type: 'error', text: result.message });
+        // It's JSON (error or info)
+        const result = await response.json();
+        setLastImportResult(result);
+        if (result.success) {
+          setMessage({
+            type: 'success',
+            text: `${result.message}. ${result.errors?.length > 0 ? `Errors: ${result.errors.length}` : ''}`,
+          });
+          setSelectedFile(null);
+          setBatchYear('');
+          setSelectedCourseImport('');
+          setTimeout(() => {
+            setShowModal(false);
+            setMessage(null);
+            setLastImportResult(null);
+          }, 3000);
+        } else {
+          setMessage({ type: 'error', text: result.message });
+        }
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'An unexpected error occurred' });
@@ -162,7 +244,9 @@ export default function Statistics() {
               onChange={(e) => setSelectedYear(e.target.value)}
             >
               {yearOptions.map((year) => (
-                <option key={year} value={year}>{year}</option>
+                <option key={year} value={year}>
+                  {year}
+                </option>
               ))}
             </select>
           </div>
@@ -175,23 +259,19 @@ export default function Statistics() {
               onChange={(e) => setSelectedCourse(e.target.value)}
             >
               {courseOptions.map((course) => (
-                <option key={course} value={course}>{course}</option>
+                <option key={course} value={course}>
+                  {course}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Buttons aligned to right */}
           <div className="filter-buttons">
-            <button
-              className="action-button"
-              onClick={() => setShowModal(true)}
-            >
+            <button className="action-button" onClick={() => setShowModal(true)}>
               Import Alumni
             </button>
-            <button
-              className="action-button"
-              onClick={() => navigate('/ViewStats')}
-            >
+            <button className="action-button" onClick={() => navigate('/ViewStats')}>
               View Statistics
             </button>
           </div>
@@ -221,7 +301,7 @@ export default function Statistics() {
             <div className="modal-overlay" onClick={closeModal} />
             <div className="modal modal-centered">
               <h2 style={{ marginTop: 0 }}>Import Alumni Data</h2>
-              
+
               {message && (
                 <div className={`message ${message.type}`} style={{ marginBottom: 16 }}>
                   <div style={{ fontWeight: 'bold', fontSize: 15, marginBottom: 4 }}>
@@ -229,12 +309,27 @@ export default function Statistics() {
                   </div>
                   {lastImportResult && (
                     <div style={{ fontSize: 14, marginBottom: 4 }}>
-                      <span style={{ color: '#155724' }}>Created: {lastImportResult.created_count}</span> &nbsp;|&nbsp;
-                      <span style={{ color: '#856404' }}>Skipped: {lastImportResult.skipped_count}</span>
+                      <span style={{ color: '#155724' }}>
+                        Created: {lastImportResult.created_count}
+                      </span>{' '}
+                      &nbsp;|&nbsp;
+                      <span style={{ color: '#856404' }}>
+                        Skipped: {lastImportResult.skipped_count}
+                      </span>
                     </div>
                   )}
                   {lastImportResult?.errors?.length > 0 && (
-                    <div style={{ maxHeight: 120, overflowY: 'auto', border: '1px solid #f5c6cb', borderRadius: 6, background: '#fff', marginTop: 8, padding: 8 }}>
+                    <div
+                      style={{
+                        maxHeight: 120,
+                        overflowY: 'auto',
+                        border: '1px solid #f5c6cb',
+                        borderRadius: 6,
+                        background: '#fff',
+                        marginTop: 8,
+                        padding: 8,
+                      }}
+                    >
                       <ul style={{ color: '#721c24', fontSize: 13, margin: 0, paddingLeft: 18 }}>
                         {lastImportResult.errors.map((err: string, idx: number) => (
                           <li key={idx}>{err}</li>
@@ -244,53 +339,59 @@ export default function Statistics() {
                   )}
                 </div>
               )}
-              
+
               <div className="modal-group">
                 <label>Batch Graduated:</label>
-                <input 
-                  type="text" 
-                  placeholder="Enter batch (e.g., 2023)" 
+                <input
+                  type="text"
+                  placeholder="Enter batch (e.g., 2023)"
                   value={batchYear}
                   onChange={(e) => setBatchYear(e.target.value)}
                   disabled={loading}
                 />
               </div>
-              
+
               <div className="modal-group">
                 <label>Course:</label>
-                <select 
+                <select
                   value={selectedCourseImport}
                   onChange={(e) => setSelectedCourseImport(e.target.value)}
                   disabled={loading}
                 >
                   <option value="">Select course</option>
-                  {courseOptions.filter(c => c !== 'ALL').map(course => (
-                    <option key={course} value={course}>{course}</option>
-                  ))}
+                  {courseOptions
+                    .filter((c) => c !== 'ALL')
+                    .map((course) => (
+                      <option key={course} value={course}>
+                        {course}
+                      </option>
+                    ))}
                 </select>
               </div>
-              
+
               <div className="modal-group">
                 <label>Upload Excel File:</label>
-                <input 
-                  type="file" 
+                <input
+                  type="file"
                   accept=".xlsx,.xls"
                   onChange={handleFileChange}
                   disabled={loading}
                 />
                 <small style={{ color: '#666', marginTop: '4px', display: 'block' }}>
-                  Required columns: CTU_ID, First_Name, Last_Name, Gender, Birthdate<br/>
-                  Optional: Middle_Name, Phone_Number, Address<br/>
+                  Required columns: CTU_ID, First_Name, Last_Name, Gender, Birthdate
+                  <br />
+                  Optional: Middle_Name, Phone_Number, Address
+                  <br />
                   Date format: MM/DD/YYYY or YYYY-MM-DD
                 </small>
-                <button 
+                <button
                   type="button"
                   onClick={() => {
                     // Create sample CSV content
                     const csvContent = `CTU_ID,First_Name,Middle_Name,Last_Name,Gender,Birthdate,Phone_Number,Address
 1337580,John,Doe,Smith,M,12/04/2003,09123456789,Cebu City
 1337581,Jane,Marie,Johnson,F,05/15/2002,09187654321,Mandaue City`;
-                    
+
                     const blob = new Blob([csvContent], { type: 'text/csv' });
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -308,17 +409,19 @@ export default function Statistics() {
                     border: '1px solid #dee2e6',
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: '12px'
+                    fontSize: '12px',
                   }}
                   disabled={loading}
                 >
                   Download Template
                 </button>
               </div>
-              
+
               <div className="modal-actions">
-                <button onClick={closeModal} disabled={loading}>Cancel</button>
-                <button 
+                <button onClick={closeModal} disabled={loading}>
+                  Cancel
+                </button>
+                <button
                   style={{ backgroundColor: '#1D4E89', color: '#fff' }}
                   onClick={handleImport}
                   disabled={loading}
@@ -419,6 +522,7 @@ export default function Statistics() {
             font-size: 14px;
             border: 1px solid #ccc;
             border-radius: 6px;
+            background-color: transparent;
           }
 
           .modal-actions {
